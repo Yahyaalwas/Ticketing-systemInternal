@@ -39,6 +39,10 @@ public static class DependencyInjection
         services.AddScoped<IMarkdownService, MarkdownService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<ITicketSequenceService, TicketSequenceService>();
+        services.AddScoped<IWorkflowEngine, WorkflowEngineService>();
+        services.AddScoped<IProjectAuthorizationService, ProjectAuthorizationService>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IAuditService, AuditService>();
 
         // AD / Identity
         services.AddScoped<IAdSyncService, AdAuthenticationService>();

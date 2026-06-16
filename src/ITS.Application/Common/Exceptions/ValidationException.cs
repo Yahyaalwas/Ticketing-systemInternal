@@ -13,4 +13,10 @@ public class ValidationException : Exception
             .GroupBy(f => f.PropertyName, f => f.ErrorMessage)
             .ToDictionary(g => g.Key, g => g.ToArray());
     }
+
+    public ValidationException(string message)
+        : base(message)
+    {
+        Errors = new Dictionary<string, string[]> { [string.Empty] = [message] };
+    }
 }
