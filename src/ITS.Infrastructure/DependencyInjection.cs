@@ -48,6 +48,10 @@ public static class DependencyInjection
         services.AddHostedService<EmailSenderBackgroundService>();
         services.AddHostedService<AttachmentPurgeBackgroundService>();
 
+        // Health checks
+        services.AddHealthChecks()
+            .AddDbContextCheck<ApplicationDbContext>("sql-server");
+
         return services;
     }
 }

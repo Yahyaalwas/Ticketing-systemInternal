@@ -2,9 +2,12 @@ using ITS.Api.Extensions;
 using ITS.Application;
 using ITS.Infrastructure;
 using ITS.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Events;
+using System.Text.Json;
 
 // Bootstrap logger for startup errors
 Log.Logger = new LoggerConfiguration()
@@ -94,9 +97,26 @@ try
     app.UseAuthorization();
     app.MapControllers();
 
-    // Health check endpoint
-    app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
-        .AllowAnonymous();
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        ResponseWriter = static async (context, report) =>
+        {
+            context.Response.ContentType = "application/json; charset=utf-8";
+            var result = JsonSerializer.Serialize(new
+            {
+                status = report.Status.ToString(),
+                totalDurationMs = report.TotalDuration.TotalMilliseconds,
+                checks = report.Entries.Select(e => new
+                {
+                    name = e.Key,
+                    status = e.Value.Status.ToString(),
+                    durationMs = e.Value.Duration.TotalMilliseconds,
+                    description = e.Value.Description
+                })
+            });
+            await context.Response.WriteAsync(result);
+        }
+    }).AllowAnonymous();
 
     app.Run();
 }

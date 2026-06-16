@@ -12,6 +12,7 @@
     <ProjectReference Include="..\ITS.Domain\ITS.Domain.csproj" />
     <ProjectReference Include="..\ITS.Application\ITS.Application.csproj" />
     <ProjectReference Include="..\ITS.Infrastructure\ITS.Infrastructure.csproj" />
+    <ProjectReference Include="..\ITS.Shared\ITS.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

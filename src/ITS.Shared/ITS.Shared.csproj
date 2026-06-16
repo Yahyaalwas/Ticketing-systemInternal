@@ -4,12 +4,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>ITS.Domain</RootNamespace>
-    <AssemblyName>ITS.Domain</AssemblyName>
+    <RootNamespace>ITS.Shared</RootNamespace>
+    <AssemblyName>ITS.Shared</AssemblyName>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="MediatR" Version="12.4.1" />
-  </ItemGroup>
 
 </Project>
