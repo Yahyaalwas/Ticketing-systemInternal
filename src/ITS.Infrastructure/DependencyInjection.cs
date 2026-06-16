@@ -42,6 +42,7 @@ public static class DependencyInjection
 
         // AD / Identity
         services.AddScoped<IAdSyncService, AdAuthenticationService>();
+        services.AddSingleton<ITokenService, JwtTokenService>();
 
         // Background services
         services.AddHostedService<AdSyncBackgroundService>();

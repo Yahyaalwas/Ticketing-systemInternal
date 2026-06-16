@@ -56,8 +56,8 @@ public sealed class AdAuthenticationService(
                 {
                     "objectGUID", "userPrincipalName", "mail", "displayName",
                     "givenName", "sn", "department", "manager",
-                    "title", "telephoneNumber", "userAccountControl",
-                    "memberOf"
+                    "title", "telephoneNumber", "employeeID",
+                    "userAccountControl", "memberOf"
                 };
 
                 var results = conn.Search(_searchBase, LdapConnection.ScopeSub, filter, attrs, false);
@@ -119,6 +119,7 @@ public sealed class AdAuthenticationService(
             Safe(attr, "manager"),
             Safe(attr, "title"),
             Safe(attr, "telephoneNumber"),
+            Safe(attr, "employeeID"),
             isActive,
             groups);
     }

@@ -15,7 +15,8 @@ public class User : AuditableEntity<Guid>
         string? lastName,
         int? departmentId,
         string? jobTitle,
-        string? phoneNumber)
+        string? phoneNumber,
+        string? employeeId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(adObjectId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userPrincipalName);
@@ -34,6 +35,7 @@ public class User : AuditableEntity<Guid>
             DepartmentId = departmentId,
             JobTitle = jobTitle,
             PhoneNumber = phoneNumber,
+            EmployeeId = employeeId,
             IsActive = true,
             TimeZoneId = "UTC",
             Locale = "en-US"
@@ -46,6 +48,7 @@ public class User : AuditableEntity<Guid>
     public string DisplayName { get; private set; } = default!;
     public string? FirstName { get; private set; }
     public string? LastName { get; private set; }
+    public string? EmployeeId { get; private set; }
     public int? DepartmentId { get; private set; }
     public Guid? ManagerUserId { get; private set; }
     public string? JobTitle { get; private set; }
@@ -72,6 +75,7 @@ public class User : AuditableEntity<Guid>
         Guid? managerUserId,
         string? jobTitle,
         string? phoneNumber,
+        string? employeeId,
         bool isActive,
         DateTime syncedAt)
     {
@@ -84,6 +88,7 @@ public class User : AuditableEntity<Guid>
         ManagerUserId = managerUserId;
         JobTitle = jobTitle;
         PhoneNumber = phoneNumber;
+        EmployeeId = employeeId;
         IsActive = isActive;
         LastAdSyncAt = syncedAt;
     }

@@ -19,5 +19,7 @@ public record AdUserInfo(
     string? Manager,
     string? JobTitle,
     string? PhoneNumber,
+    string? EmployeeId,
     bool IsActive,
     IReadOnlyList<string> GroupMemberships);
+
