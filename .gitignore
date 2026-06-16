@@ -1,0 +1,31 @@
+## .NET
+obj/
+bin/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+## Logs
+logs/
+*.log
+
+## Secrets (never commit)
+appsettings.Production.json
+appsettings.Secrets.json
+**/secrets.json
+*.pfx
+*.p12
+
+## EF Core migrations (commit these — but not the designer files)
+**/Migrations/*Designer.cs
+
+## NuGet
+.nuget/
+*.nupkg
+packages/
+
+## OS
+.DS_Store
+Thumbs.db
