@@ -76,7 +76,7 @@ public sealed class EmailSenderBackgroundService(
                         AlternateView.CreateAlternateViewFromString(email.PlainTextBody, null, "text/plain"));
                 }
 
-                await smtpClient.SendMailAsync(message, cancellationToken);
+                await smtpClient.SendMailAsync(message);
 
                 email.MarkSent();
                 logger.LogInformation("Sent email to {Recipient}", email.RecipientEmail);
