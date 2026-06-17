@@ -47,6 +47,17 @@ public sealed class GetKanbanBoardQueryHandler(
         if (request.LabelId.HasValue)
             ticketsQuery = ticketsQuery.Where(t => t.Labels.Any(l => l.LabelId == request.LabelId.Value));
 
+        if (request.IssueTypeId.HasValue)
+            ticketsQuery = ticketsQuery.Where(t => t.IssueTypeId == request.IssueTypeId.Value);
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            if (int.TryParse(request.Search, out var ticketNum))
+                ticketsQuery = ticketsQuery.Where(t => t.TicketNumber == ticketNum || t.Title.Contains(request.Search));
+            else
+                ticketsQuery = ticketsQuery.Where(t => t.Title.Contains(request.Search));
+        }
+
         var tickets = await ticketsQuery
             .Include(t => t.Labels)
             .ToListAsync(cancellationToken);

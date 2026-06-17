@@ -4,10 +4,12 @@ namespace ITS.Application.Features.Tickets.Queries.GetKanbanBoard;
 
 public sealed record GetKanbanBoardQuery(
     Guid ProjectId,
-    Guid? AssigneeUserId,
-    int? PriorityId,
-    int? LabelId,
-    Guid? EpicTicketId
+    Guid? AssigneeUserId = null,
+    int? PriorityId = null,
+    int? LabelId = null,
+    Guid? EpicTicketId = null,
+    int? IssueTypeId = null,
+    string? Search = null
 ) : IRequest<KanbanBoardDto>;
 
 public sealed record KanbanBoardDto(

@@ -1,11 +1,12 @@
 using ITS.Application.Common.Exceptions;
 using ITS.Application.Common.Interfaces;
-using ITS.Domain.Entities.Content;
-using ITS.Infrastructure.Persistence;
+using ITS.Application.Features.Attachments.Commands.AddAttachment;
+using ITS.Application.Features.Attachments.Commands.DeleteAttachment;
+using ITS.Application.Features.Attachments.Queries.GetAttachments;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
 
 namespace ITS.Api.Controllers;
 
@@ -14,39 +15,23 @@ namespace ITS.Api.Controllers;
 [Authorize]
 [Produces("application/json")]
 public class AttachmentsController(
-    ApplicationDbContext db,
+    ISender mediator,
     IFileStorageService fileStorage,
-    ICurrentUserService currentUser,
-    IProjectAuthorizationService authz,
-    IConfiguration configuration) : ControllerBase
+    IApplicationDbContext db) : ControllerBase
 {
-    private static readonly long MaxFileSizeBytes = 25L * 1024 * 1024; // 25 MB default
-
+    /// <summary>List all non-deleted attachments for a ticket.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<AttachmentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> GetAttachments(
         Guid ticketId, CancellationToken cancellationToken)
     {
-        var ticket = await db.Tickets.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == ticketId && !t.IsDeleted, cancellationToken)
-            ?? throw new NotFoundException("Ticket", ticketId);
-
-        if (!await authz.CanViewProjectAsync(currentUser.UserId, ticket.ProjectId, cancellationToken))
-            return Forbid();
-
-        var attachments = await db.Attachments.AsNoTracking()
-            .Where(a => a.TicketId == ticketId && !a.IsDeleted)
-            .OrderByDescending(a => a.CreatedAt)
-            .Select(a => new AttachmentDto(
-                a.Id, a.FileName, a.ContentType, a.FileSizeBytes,
-                fileStorage.GetPublicUrl(a.StorageKey),
-                a.ThumbnailKey != null ? fileStorage.GetPublicUrl(a.ThumbnailKey) : null,
-                a.UploaderUserId, a.CreatedAt))
-            .ToListAsync(cancellationToken);
-
-        return Ok(attachments);
+        var result = await mediator.Send(new GetAttachmentsQuery(ticketId), cancellationToken);
+        return Ok(result);
     }
 
+    /// <summary>Upload a file attachment to a ticket.</summary>
     [HttpPost]
     [RequestSizeLimit(26_214_400)] // 25 MB + overhead
     [ProducesResponseType(typeof(AttachmentDto), StatusCodes.Status201Created)]
@@ -57,56 +42,27 @@ public class AttachmentsController(
         IFormFile file,
         CancellationToken cancellationToken)
     {
-        if (file is null || file.Length == 0)
-            return BadRequest(new { message = "No file provided." });
-
-        var maxBytes = configuration.GetValue<long>("Attachments:MaxFileSizeBytes", MaxFileSizeBytes);
-        if (file.Length > maxBytes)
-            return BadRequest(new { message = $"File exceeds maximum size of {maxBytes / 1024 / 1024} MB." });
-
-        var allowedTypes = configuration.GetSection("Attachments:AllowedContentTypes").Get<string[]>() ?? [];
-        if (allowedTypes.Length > 0 && !allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
-            return BadRequest(new { message = $"Content type '{file.ContentType}' is not allowed." });
-
-        var ticket = await db.Tickets.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == ticketId && !t.IsDeleted, cancellationToken)
-            ?? throw new NotFoundException("Ticket", ticketId);
-
-        if (!await authz.CanEditTicketAsync(currentUser.UserId, ticket.ProjectId, cancellationToken))
-            return Forbid();
-
-        // Compute SHA-256 checksum
-        string checksum;
-        await using (var stream = file.OpenReadStream())
-        {
-            var hash = await SHA256.HashDataAsync(stream, cancellationToken);
-            checksum = Convert.ToHexString(hash).ToLowerInvariant();
-        }
-
-        // Upload file
-        string storageKey;
-        await using (var stream = file.OpenReadStream())
-        {
-            storageKey = await fileStorage.UploadAsync(stream, file.FileName, file.ContentType, cancellationToken);
-        }
-
-        var retentionDays = configuration.GetValue<int>("Attachments:RetentionDays", 90);
-        var attachment = Attachment.Create(
-            ticketId, null, currentUser.UserId,
-            file.FileName, storageKey, file.ContentType,
-            file.Length, checksum, retentionDays);
-
-        db.Attachments.Add(attachment);
-        await db.SaveChangesAsync(cancellationToken);
-
-        var dto = new AttachmentDto(
-            attachment.Id, attachment.FileName, attachment.ContentType, attachment.FileSizeBytes,
-            fileStorage.GetPublicUrl(storageKey), null, currentUser.UserId, attachment.CreatedAt);
-
-        return Created($"api/tickets/{ticketId}/attachments/{attachment.Id}", dto);
+        var result = await mediator.Send(new AddAttachmentCommand(ticketId, file), cancellationToken);
+        return Created($"api/tickets/{ticketId}/attachments/{result.Id}", result);
     }
 
+    /// <summary>Delete an attachment from a ticket.</summary>
+    [HttpDelete("{attachmentId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeleteAttachment(
+        Guid ticketId, Guid attachmentId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new DeleteAttachmentCommand(ticketId, attachmentId), cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Download a file attachment, streaming directly from storage.</summary>
     [HttpGet("{attachmentId:guid}/download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Download(
         Guid ticketId, Guid attachmentId, CancellationToken cancellationToken)
     {
@@ -115,16 +71,10 @@ public class AttachmentsController(
             ?? throw new NotFoundException("Attachment", attachmentId);
 
         var ticket = await db.Tickets.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == ticketId, cancellationToken)!;
-
-        if (!await authz.CanViewProjectAsync(currentUser.UserId, ticket!.ProjectId, cancellationToken))
-            return Forbid();
+            .FirstOrDefaultAsync(t => t.Id == ticketId, cancellationToken)
+            ?? throw new NotFoundException("Ticket", ticketId);
 
         var stream = await fileStorage.DownloadAsync(attachment.StorageKey, cancellationToken);
         return File(stream, attachment.ContentType, attachment.FileName);
     }
 }
-
-public sealed record AttachmentDto(
-    Guid Id, string FileName, string ContentType, long FileSizeBytes,
-    string Url, string? ThumbnailUrl, Guid UploaderUserId, DateTime UploadedAt);
