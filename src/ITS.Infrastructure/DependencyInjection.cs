@@ -1,10 +1,13 @@
 using ITS.Application.Common.Interfaces;
+using ITS.Infrastructure.Ai;
+using ITS.Infrastructure.Ai.Providers;
 using ITS.Infrastructure.BackgroundJobs;
 using ITS.Infrastructure.Identity;
 using ITS.Infrastructure.Persistence;
 using ITS.Infrastructure.Persistence.Interceptors;
 using ITS.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -59,6 +62,50 @@ public static class DependencyInjection
         // Health checks
         services.AddHealthChecks()
             .AddDbContextCheck<ApplicationDbContext>("sql-server");
+
+        // AI Platform
+        services.AddMemoryCache();
+        services.AddSingleton<IAiCacheService, AiCacheService>();
+        services.AddSingleton<IAiAuditService, AiAuditService>();
+        services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
+        services.AddSingleton<IAiDataMasker, AiDataMasker>();
+
+        services.Configure<AiOptions>(configuration.GetSection(AiOptions.SectionName));
+        services.Configure<AiRateLimiterOptions>(configuration.GetSection(AiRateLimiterOptions.SectionName));
+        services.Configure<AiDataMaskerOptions>(configuration.GetSection(AiDataMaskerOptions.SectionName));
+        services.Configure<OpenAiProviderOptions>(configuration.GetSection(OpenAiProviderOptions.SectionName));
+        services.Configure<AzureOpenAiProviderOptions>(configuration.GetSection(AzureOpenAiProviderOptions.SectionName));
+
+        // Register the active AI provider based on configuration
+        var aiProvider = configuration["Ai:Provider"] ?? "mock";
+        switch (aiProvider.ToLowerInvariant())
+        {
+            case "openai":
+                services.AddHttpClient("openai", (sp, c) =>
+                {
+                    var key = configuration["Ai:OpenAi:ApiKey"] ?? "";
+                    c.BaseAddress = new Uri(configuration["Ai:OpenAi:BaseUrl"] ?? "https://api.openai.com");
+                    c.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+                    c.Timeout = TimeSpan.FromSeconds(60);
+                });
+                services.AddSingleton<IAiProvider, OpenAiProvider>();
+                break;
+
+            case "azure-openai":
+                services.AddHttpClient("azure-openai", (sp, c) =>
+                {
+                    var key = configuration["Ai:AzureOpenAi:ApiKey"] ?? "";
+                    c.DefaultRequestHeaders.Add("api-key", key);
+                    c.Timeout = TimeSpan.FromSeconds(60);
+                });
+                services.AddSingleton<IAiProvider, AzureOpenAiProvider>();
+                break;
+
+            default:
+                services.AddSingleton<IAiProvider, MockAiProvider>();
+                break;
+        }
 
         return services;
     }
