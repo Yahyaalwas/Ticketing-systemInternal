@@ -1,5 +1,6 @@
 using ITS.Application.Common.Interfaces;
 using ITS.Domain.Common;
+using ITS.Shared.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -31,7 +32,7 @@ public sealed class AuditableEntityInterceptor(
         var now = dateTimeService.UtcNow;
         var userId = currentUserService.IsAuthenticated
             ? currentUserService.UserId
-            : SystemUser.Id; // Sentinel for background jobs
+            : SystemConstants.SystemUserId;
 
         foreach (var entry in context.ChangeTracker.Entries<AuditableEntity<Guid>>())
         {
@@ -51,10 +52,4 @@ public sealed class AuditableEntityInterceptor(
                 entry.Entity.SetAuditFieldsOnUpdate(userId, now);
         }
     }
-}
-
-// Sentinel user ID for system/background operations
-public static class SystemUser
-{
-    public static readonly Guid Id = new("00000000-0000-0000-0000-000000000001");
 }
