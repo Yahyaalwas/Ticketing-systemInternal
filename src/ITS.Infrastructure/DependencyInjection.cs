@@ -53,6 +53,9 @@ public static class DependencyInjection
         services.AddHostedService<EmailSenderBackgroundService>();
         services.AddHostedService<AttachmentPurgeBackgroundService>();
 
+        // Seed data
+        services.AddScoped<ApplicationDbContextSeed>();
+
         // Health checks
         services.AddHealthChecks()
             .AddDbContextCheck<ApplicationDbContext>("sql-server");

@@ -58,11 +58,19 @@ try
     var app = builder.Build();
 
     // Auto-migrate in development (use explicit migrations in production)
+    // Auto-migrate in Development; use explicit migration scripts in Staging/Production.
     if (app.Environment.IsDevelopment())
     {
-        using var scope = app.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        using var migrationScope = app.Services.CreateScope();
+        var db = migrationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
+    }
+
+    // Seed reference data — idempotent, safe to run in every environment.
+    using (var seedScope = app.Services.CreateScope())
+    {
+        var seeder = seedScope.ServiceProvider.GetRequiredService<ApplicationDbContextSeed>();
+        await seeder.SeedAsync();
     }
 
     // Middleware pipeline (order matters)

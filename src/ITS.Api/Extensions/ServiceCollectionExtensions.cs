@@ -111,7 +111,6 @@ public static class ServiceCollectionExtensions
                 }
             });
 
-            options.EnableAnnotations();
             options.DescribeAllParametersInCamelCase();
         });
 
