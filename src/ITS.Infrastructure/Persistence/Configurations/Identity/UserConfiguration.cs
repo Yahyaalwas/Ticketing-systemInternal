@@ -90,6 +90,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(u => u.DepartmentId)
             .HasDatabaseName("IX_Users_DepartmentId");
 
+        // Soft delete filter
+        builder.HasQueryFilter(u => !u.IsDeleted);
+
         // Relationships
         builder.HasOne(u => u.Department)
             .WithMany(d => d.Users)

@@ -30,5 +30,7 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
             .WithMany(d => d.ChildDepartments)
             .HasForeignKey(d => d.ParentDepartmentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasQueryFilter(d => !d.IsDeleted);
     }
 }
