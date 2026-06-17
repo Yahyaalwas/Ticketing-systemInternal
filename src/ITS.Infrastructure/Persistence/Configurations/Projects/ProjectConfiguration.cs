@@ -1,4 +1,6 @@
+using ITS.Domain.Entities.Identity;
 using ITS.Domain.Entities.Projects;
+using ITS.Domain.Entities.Workflow;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -53,6 +55,24 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .WithOne()
             .HasForeignKey(cf => cf.ProjectId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<Department>()
+            .WithMany()
+            .HasForeignKey(p => p.DepartmentId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(p => p.LeadUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<Workflow>()
+            .WithMany()
+            .HasForeignKey(p => p.ActiveWorkflowId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasQueryFilter(p => !p.IsDeleted);
     }

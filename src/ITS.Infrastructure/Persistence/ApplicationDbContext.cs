@@ -1,6 +1,7 @@
 using ITS.Application.Common.Interfaces;
 using ITS.Domain.Common;
 using ITS.Domain.Entities.Audit;
+using ITS.Domain.Entities.Config;
 using ITS.Domain.Entities.Content;
 using ITS.Domain.Entities.Identity;
 using ITS.Domain.Entities.Notifications;
@@ -50,6 +51,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<WorkflowTransition> WorkflowTransitions => Set<WorkflowTransition>();
     public DbSet<TransitionGuard> TransitionGuards => Set<TransitionGuard>();
     public DbSet<TransitionAction> TransitionActions => Set<TransitionAction>();
+
+    // Config
+    public DbSet<ProjectSequence> ProjectSequences => Set<ProjectSequence>();
 
     // Tickets
     public DbSet<Ticket> Tickets => Set<Ticket>();

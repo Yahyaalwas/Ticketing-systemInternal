@@ -23,42 +23,52 @@ public sealed class GetTicketQueryHandler(
         if (!await authz.CanViewProjectAsync(currentUser.UserId, ticket.ProjectId, cancellationToken))
             throw new ForbiddenAccessException("You do not have permission to view this ticket.");
 
-        // Build the DTO using projections against related tables
-        var project = await db.Projects.AsNoTracking()
-            .FirstAsync(p => p.Id == ticket.ProjectId, cancellationToken);
+        // Batch 1: fire all independent scalar lookups concurrently
+        var projectTask    = db.Projects.AsNoTracking().FirstAsync(p => p.Id == ticket.ProjectId, cancellationToken);
+        var statusTask     = db.WorkflowStatuses.AsNoTracking().FirstAsync(s => s.Id == ticket.StatusId, cancellationToken);
+        var issueTypeTask  = db.IssueTypes.AsNoTracking().FirstAsync(it => it.Id == ticket.IssueTypeId, cancellationToken);
 
-        var status = await db.WorkflowStatuses.AsNoTracking()
-            .FirstAsync(s => s.Id == ticket.StatusId, cancellationToken);
+        var priorityTask   = ticket.PriorityId.HasValue
+            ? db.Priorities.AsNoTracking().FirstOrDefaultAsync(p => p.Id == ticket.PriorityId.Value, cancellationToken)
+            : Task.FromResult<Domain.Entities.Projects.Priority?>(null);
 
-        var issueType = await db.IssueTypes.AsNoTracking()
-            .FirstAsync(it => it.Id == ticket.IssueTypeId, cancellationToken);
+        var assigneeTask   = ticket.AssigneeUserId.HasValue
+            ? db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == ticket.AssigneeUserId.Value, cancellationToken)
+            : Task.FromResult<Domain.Entities.Identity.User?>(null);
 
-        var assignee = ticket.AssigneeUserId.HasValue
-            ? await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == ticket.AssigneeUserId.Value, cancellationToken)
-            : null;
+        var reporterTask   = db.Users.AsNoTracking().FirstAsync(u => u.Id == ticket.ReporterUserId, cancellationToken);
+        var createdByTask  = db.Users.AsNoTracking().FirstAsync(u => u.Id == ticket.CreatedByUserId, cancellationToken);
 
-        var reporter = await db.Users.AsNoTracking()
-            .FirstAsync(u => u.Id == ticket.ReporterUserId, cancellationToken);
+        var resolutionTask = ticket.ResolutionId.HasValue
+            ? db.Resolutions.AsNoTracking().FirstOrDefaultAsync(r => r.Id == ticket.ResolutionId.Value, cancellationToken)
+            : Task.FromResult<Domain.Entities.Tickets.Resolution?>(null);
 
-        var createdBy = await db.Users.AsNoTracking()
-            .FirstAsync(u => u.Id == ticket.CreatedByUserId, cancellationToken);
+        var commentCountTask    = db.Comments.CountAsync(c => c.TicketId == ticket.Id && !c.IsDeleted, cancellationToken);
+        var attachmentCountTask = db.Attachments.CountAsync(a => a.TicketId == ticket.Id && !a.IsDeleted, cancellationToken);
 
-        var priority = ticket.PriorityId.HasValue
-            ? await db.Priorities.AsNoTracking().FirstOrDefaultAsync(p => p.Id == ticket.PriorityId.Value, cancellationToken)
-            : null;
+        await Task.WhenAll(projectTask, statusTask, issueTypeTask, priorityTask,
+                           assigneeTask, reporterTask, createdByTask, resolutionTask,
+                           commentCountTask, attachmentCountTask);
 
-        var resolution = ticket.ResolutionId.HasValue
-            ? await db.Resolutions.AsNoTracking().FirstOrDefaultAsync(r => r.Id == ticket.ResolutionId.Value, cancellationToken)
-            : null;
+        var project    = await projectTask;
+        var status     = await statusTask;
+        var issueType  = await issueTypeTask;
+        var priority   = await priorityTask;
+        var assignee   = await assigneeTask;
+        var reporter   = await reporterTask;
+        var createdBy  = await createdByTask;
+        var resolution = await resolutionTask;
 
-        // Labels
+        // Batch 2: labels
         var labelIds = ticket.Labels.Select(l => l.LabelId).ToList();
-        var labels = await db.Labels.AsNoTracking()
-            .Where(l => labelIds.Contains(l.Id))
-            .Select(l => new LabelDto(l.Id, l.Name, l.Color))
-            .ToListAsync(cancellationToken);
+        var labels = labelIds.Count == 0
+            ? (IReadOnlyList<LabelDto>)[]
+            : await db.Labels.AsNoTracking()
+                .Where(l => labelIds.Contains(l.Id))
+                .Select(l => new LabelDto(l.Id, l.Name, l.Color))
+                .ToListAsync(cancellationToken);
 
-        // Links (both directions)
+        // Batch 3: links — load both directions then resolve referenced tickets/projects in two queries
         var outboundLinks = await db.TicketLinks.AsNoTracking()
             .Include(l => l.LinkType)
             .Where(l => l.SourceTicketId == ticket.Id)
@@ -69,58 +79,67 @@ public sealed class GetTicketQueryHandler(
             .Where(l => l.TargetTicketId == ticket.Id)
             .ToListAsync(cancellationToken);
 
+        IReadOnlyList<TicketLinkDto> links;
         var linkedTicketIds = outboundLinks.Select(l => l.TargetTicketId)
             .Concat(inboundLinks.Select(l => l.SourceTicketId))
             .Distinct()
             .ToList();
 
-        var linkedTickets = await db.Tickets.AsNoTracking()
-            .Include(t => t.Labels)
-            .Where(t => linkedTicketIds.Contains(t.Id))
-            .ToListAsync(cancellationToken);
+        if (linkedTicketIds.Count == 0)
+        {
+            links = [];
+        }
+        else
+        {
+            var linkedTickets = await db.Tickets.AsNoTracking()
+                .Where(t => linkedTicketIds.Contains(t.Id))
+                .Select(t => new { t.Id, t.ProjectId, t.TicketNumber, t.Title })
+                .ToListAsync(cancellationToken);
 
-        var linkedProjects = await db.Projects.AsNoTracking()
-            .Where(p => linkedTickets.Select(t => t.ProjectId).Distinct().Contains(p.Id))
-            .ToListAsync(cancellationToken);
+            var linkedProjectIds = linkedTickets.Select(t => t.ProjectId).Distinct().ToList();
+            var linkedProjects = await db.Projects.AsNoTracking()
+                .Where(p => linkedProjectIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.ProjectKey })
+                .ToListAsync(cancellationToken);
 
-        var links = outboundLinks
-            .Select(l =>
-            {
-                var lt = linkedTickets.First(t => t.Id == l.TargetTicketId);
-                var lp = linkedProjects.First(p => p.Id == lt.ProjectId);
-                return new TicketLinkDto(l.Id, lt.Id, $"{lp.ProjectKey}-{lt.TicketNumber}", lt.Title, l.LinkType.OutwardName);
-            })
-            .Concat(inboundLinks.Select(l =>
-            {
-                var lt = linkedTickets.First(t => t.Id == l.SourceTicketId);
-                var lp = linkedProjects.First(p => p.Id == lt.ProjectId);
-                return new TicketLinkDto(l.Id, lt.Id, $"{lp.ProjectKey}-{lt.TicketNumber}", lt.Title, l.LinkType.InwardName);
-            }))
-            .ToList();
+            var ticketMap  = linkedTickets.ToDictionary(t => t.Id);
+            var projectMap = linkedProjects.ToDictionary(p => p.Id);
 
-        // Watchers
+            links = outboundLinks
+                .Select(l =>
+                {
+                    var lt = ticketMap[l.TargetTicketId];
+                    var lp = projectMap[lt.ProjectId];
+                    return new TicketLinkDto(l.Id, lt.Id, $"{lp.ProjectKey}-{lt.TicketNumber}", lt.Title, l.LinkType.OutwardName);
+                })
+                .Concat(inboundLinks.Select(l =>
+                {
+                    var lt = ticketMap[l.SourceTicketId];
+                    var lp = projectMap[lt.ProjectId];
+                    return new TicketLinkDto(l.Id, lt.Id, $"{lp.ProjectKey}-{lt.TicketNumber}", lt.Title, l.LinkType.InwardName);
+                }))
+                .ToList();
+        }
+
+        // Batch 4: watchers
         var watcherIds = ticket.Watchers.Select(w => w.UserId).ToList();
-        var watchers = await db.Users.AsNoTracking()
-            .Where(u => watcherIds.Contains(u.Id))
-            .Select(u => new TicketWatcherDto(u.Id, u.DisplayName))
-            .ToListAsync(cancellationToken);
+        var watchers = watcherIds.Count == 0
+            ? (IReadOnlyList<TicketWatcherDto>)[]
+            : await db.Users.AsNoTracking()
+                .Where(u => watcherIds.Contains(u.Id))
+                .Select(u => new TicketWatcherDto(u.Id, u.DisplayName))
+                .ToListAsync(cancellationToken);
 
-        var commentCount = await db.Comments.CountAsync(c => c.TicketId == ticket.Id && !c.IsDeleted, cancellationToken);
-        var attachmentCount = await db.Attachments.CountAsync(a => a.TicketId == ticket.Id && !a.IsDeleted, cancellationToken);
-
-        // Parent and Epic key lookups
+        // Parent key: single join query if needed
         string? parentKey = null;
         if (ticket.ParentTicketId.HasValue)
         {
-            var parent = await db.Tickets.AsNoTracking()
-                .Include(t => t.Labels)
-                .FirstOrDefaultAsync(t => t.Id == ticket.ParentTicketId.Value, cancellationToken);
-            if (parent != null)
-            {
-                var parentProject = linkedProjects.FirstOrDefault(p => p.Id == parent.ProjectId)
-                    ?? await db.Projects.AsNoTracking().FirstAsync(p => p.Id == parent.ProjectId, cancellationToken);
-                parentKey = $"{parentProject.ProjectKey}-{parent.TicketNumber}";
-            }
+            parentKey = await (
+                from t in db.Tickets.AsNoTracking()
+                join p in db.Projects.AsNoTracking() on t.ProjectId equals p.Id
+                where t.Id == ticket.ParentTicketId.Value
+                select p.ProjectKey + "-" + t.TicketNumber.ToString()
+            ).FirstOrDefaultAsync(cancellationToken);
         }
 
         return new TicketDetailDto(
@@ -146,7 +165,7 @@ public sealed class GetTicketQueryHandler(
             ticket.ParentTicketId,
             parentKey,
             ticket.EpicTicketId,
-            null, // EpicTicketKey — resolved similarly to parentKey
+            null,
             ticket.DueDate,
             ticket.StoryPoints,
             ticket.EstimatedHours,
@@ -162,7 +181,7 @@ public sealed class GetTicketQueryHandler(
             labels,
             links,
             watchers,
-            commentCount,
-            attachmentCount);
+            await commentCountTask,
+            await attachmentCountTask);
     }
 }

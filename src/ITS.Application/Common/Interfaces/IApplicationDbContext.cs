@@ -1,4 +1,5 @@
 using ITS.Domain.Entities.Audit;
+using ITS.Domain.Entities.Config;
 using ITS.Domain.Entities.Content;
 using ITS.Domain.Entities.Identity;
 using ITS.Domain.Entities.Notifications;
@@ -33,6 +34,9 @@ public interface IApplicationDbContext
     DbSet<WorkflowTransition> WorkflowTransitions { get; }
     DbSet<TransitionGuard> TransitionGuards { get; }
     DbSet<TransitionAction> TransitionActions { get; }
+
+    // Config
+    DbSet<ProjectSequence> ProjectSequences { get; }
 
     // Tickets
     DbSet<Ticket> Tickets { get; }

@@ -16,13 +16,13 @@ public class RoleSeedConfiguration : IEntityTypeConfiguration<Role>
     public void Configure(EntityTypeBuilder<Role> builder)
     {
         builder.HasData(
-            CreateRole(1, "System Administrator",    "Full system access.",                              RoleScope.Global, isSystem: true),
-            CreateRole(2, "Department Administrator","Manages a department and its projects.",           RoleScope.Global, isSystem: true),
-            CreateRole(3, "Project Manager",         "Manages projects and project members.",            RoleScope.Global, isSystem: false),
-            CreateRole(4, "Team Lead",               "Leads a development team within a project.",      RoleScope.Global, isSystem: false),
-            CreateRole(5, "Developer",               "Creates and resolves tickets.",                    RoleScope.Global, isSystem: false),
-            CreateRole(6, "Reporter",                "Creates tickets and reports issues.",              RoleScope.Global, isSystem: false),
-            CreateRole(7, "Viewer",                  "Read-only access to projects and tickets.",       RoleScope.Global, isSystem: true)
+            CreateRole(1, "System Administrator", "Full system access.",                        RoleScope.Global, isSystem: true),
+            CreateRole(2, "Department Manager",   "Manages a department and its projects.",    RoleScope.Global, isSystem: true),
+            CreateRole(3, "Project Lead",         "Manages projects and project members.",     RoleScope.Global, isSystem: false),
+            CreateRole(4, "Member",               "Active project contributor.",               RoleScope.Global, isSystem: false),
+            CreateRole(5, "Developer",            "Creates and resolves tickets.",             RoleScope.Global, isSystem: false),
+            CreateRole(6, "Reporter",             "Creates tickets and reports issues.",       RoleScope.Global, isSystem: false),
+            CreateRole(7, "Viewer",               "Read-only access to projects and tickets.", RoleScope.Global, isSystem: true)
         );
     }
 

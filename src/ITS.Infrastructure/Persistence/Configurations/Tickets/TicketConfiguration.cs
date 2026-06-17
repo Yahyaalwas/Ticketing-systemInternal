@@ -110,6 +110,45 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
             .HasForeignKey(cfv => cfv.TicketId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // FK constraints — critical relationships without navigation properties
+        builder.HasOne<Domain.Entities.Projects.Project>()
+            .WithMany()
+            .HasForeignKey(t => t.ProjectId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Domain.Entities.Projects.IssueType>()
+            .WithMany()
+            .HasForeignKey(t => t.IssueTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Domain.Entities.Workflow.WorkflowStatus>()
+            .WithMany()
+            .HasForeignKey(t => t.StatusId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Domain.Entities.Projects.Priority>()
+            .WithMany()
+            .HasForeignKey(t => t.PriorityId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<Domain.Entities.Identity.User>()
+            .WithMany()
+            .HasForeignKey(t => t.AssigneeUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<Domain.Entities.Identity.User>()
+            .WithMany()
+            .HasForeignKey(t => t.ReporterUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Resolution>()
+            .WithMany()
+            .HasForeignKey(t => t.ResolutionId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Global query filter for soft deletes
         builder.HasQueryFilter(t => !t.IsDeleted);
     }

@@ -34,6 +34,22 @@ public sealed class DomainEventDispatchInterceptor(IPublisher publisher) : SaveC
         domainEntities.ForEach(e => e.Entity.ClearDomainEvents());
 
         foreach (var domainEvent in domainEvents)
-            await publisher.Publish(domainEvent, cancellationToken);
+        {
+            try
+            {
+                await publisher.Publish(domainEvent, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Domain event handler failures must not roll back a committed write.
+                // Log and continue so remaining events are still dispatched.
+                System.Diagnostics.Debug.WriteLine(
+                    $"[DomainEventDispatch] Handler for {domainEvent.GetType().Name} threw: {ex}");
+            }
+        }
     }
 }
