@@ -14,7 +14,7 @@ export function ExecutiveReportGenerator() {
   const [report, setReport] = useState<ExecutiveReportDto | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (force = false) => getExecutiveReport(period, undefined, force),
+    mutationFn: (force: boolean) => getExecutiveReport(period, undefined, force),
     onSuccess: setReport,
   });
 
@@ -23,7 +23,7 @@ export function ExecutiveReportGenerator() {
   return (
     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%', overflow: 'auto' }}>
       <Box>
-        <Typography variant="subtitle2" fontWeight={600} mb={0.5}>Executive AI Report</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>Executive AI Report</Typography>
         <Typography variant="caption" color="text.secondary">
           AI-generated narrative and metrics for stakeholders
         </Typography>
@@ -52,7 +52,7 @@ export function ExecutiveReportGenerator() {
       {report && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="subtitle1" fontWeight={700}>{report.periodLabel}</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{report.periodLabel}</Typography>
             {report.wasFromCache && <Chip label="Cached" size="small" variant="outlined" />}
             <Typography variant="caption" color="text.secondary">Generated {formatDateTime(report.generatedAt)}</Typography>
           </Box>
@@ -67,7 +67,7 @@ export function ExecutiveReportGenerator() {
             ].map((m) => (
               <Grid key={m.label} size={{ xs: 6 }}>
                 <Card variant="outlined" sx={{ textAlign: 'center', py: 1 }}>
-                  <Typography variant="h5" fontWeight={700} color={m.color}>{m.value}</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: m.color }}>{m.value}</Typography>
                   <Typography variant="caption" color="text.secondary">{m.label}</Typography>
                 </Card>
               </Grid>
@@ -78,7 +78,7 @@ export function ExecutiveReportGenerator() {
           <Card variant="outlined">
             <CardContent sx={{ py: 1.5 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="caption" fontWeight={600}>SLA Compliance</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>SLA Compliance</Typography>
                 <Chip label={`${report.metrics.slaCompliancePercent}%`} size="small"
                   color={slaColor(report.metrics.slaCompliancePercent)} />
               </Box>
@@ -94,14 +94,14 @@ export function ExecutiveReportGenerator() {
           {/* Narrative */}
           <Card variant="outlined">
             <CardContent>
-              <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>EXECUTIVE SUMMARY</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="text.secondary">EXECUTIVE SUMMARY</Typography>
               <Typography variant="body2">{report.narrativeSummary}</Typography>
             </CardContent>
           </Card>
 
           <Card variant="outlined">
             <CardContent>
-              <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>SLA HEALTH</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="text.secondary">SLA HEALTH</Typography>
               <Typography variant="body2">{report.slaHealthReport}</Typography>
             </CardContent>
           </Card>
@@ -109,7 +109,7 @@ export function ExecutiveReportGenerator() {
           {/* Risks */}
           {report.deliveryRisks.length > 0 && (
             <Box>
-              <Typography variant="caption" fontWeight={600} color="error" display="block" mb={0.5}>DELIVERY RISKS</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="error">DELIVERY RISKS</Typography>
               {report.deliveryRisks.map((r, i) => (
                 <Typography key={i} variant="body2" sx={{ mb: 0.25 }}>⚠ {r}</Typography>
               ))}
@@ -118,7 +118,7 @@ export function ExecutiveReportGenerator() {
 
           {report.topRecurringCategories.length > 0 && (
             <Box>
-              <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>TOP ISSUE CATEGORIES</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="text.secondary">TOP ISSUE CATEGORIES</Typography>
               {report.topRecurringCategories.map((c, i) => (
                 <Typography key={i} variant="body2" sx={{ mb: 0.25 }}>• {c}</Typography>
               ))}

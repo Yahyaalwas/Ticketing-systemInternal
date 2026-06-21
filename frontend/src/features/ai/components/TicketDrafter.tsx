@@ -20,7 +20,7 @@ export function TicketDrafter() {
   return (
     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%', overflow: 'auto' }}>
       <Box>
-        <Typography variant="subtitle2" fontWeight={600} mb={0.5}>AI Ticket Drafter</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>AI Ticket Drafter</Typography>
         <Typography variant="caption" color="text.secondary">
           Paste an email, Slack message, or description to auto-generate a ticket
         </Typography>
@@ -50,13 +50,13 @@ export function TicketDrafter() {
           <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
               <AiIcon color="primary" fontSize="small" />
-              <Typography variant="subtitle2" fontWeight={700}>AI Draft</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>AI Draft</Typography>
               <Chip label={`via ${draft.providerName}`} size="small" variant="outlined" />
             </Box>
 
             <Box>
               <Typography variant="caption" color="text.secondary">TITLE</Typography>
-              <Typography variant="body2" fontWeight={500}>{draft.suggestedTitle}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>{draft.suggestedTitle}</Typography>
             </Box>
 
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

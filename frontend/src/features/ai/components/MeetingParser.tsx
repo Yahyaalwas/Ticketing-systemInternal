@@ -22,7 +22,7 @@ export function MeetingParser() {
   return (
     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%', overflow: 'auto' }}>
       <Box>
-        <Typography variant="subtitle2" fontWeight={600} mb={0.5}>Meeting Notes Parser</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>Meeting Notes Parser</Typography>
         <Typography variant="caption" color="text.secondary">
           Paste meeting notes to extract tasks, decisions, and risks
         </Typography>
@@ -51,12 +51,12 @@ export function MeetingParser() {
 
       {result && (
         <Box>
-          <Typography variant="subtitle2" fontWeight={600} mb={1}>{result.meetingTitle}</Typography>
-          <Typography variant="body2" color="text.secondary" mb={2}>{result.narrativeSummary}</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>{result.meetingTitle}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{result.narrativeSummary}</Typography>
 
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="body2" fontWeight={600}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 Tasks ({result.tasks.length}) <Chip label={result.tasks.length} size="small" color="primary" sx={{ ml: 1 }} />
               </Typography>
             </AccordionSummary>
@@ -69,13 +69,13 @@ export function MeetingParser() {
                       <ListItemText
                         primary={
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                            <Typography variant="body2" fontWeight={500}>{task.title}</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>{task.title}</Typography>
                             <PriorityChip priority={task.priority} />
                           </Box>
                         }
                         secondary={
                           <>
-                            {task.description && <Typography variant="caption" display="block">{task.description}</Typography>}
+                            {task.description && <Typography variant="caption" sx={{ display: "block" }}>{task.description}</Typography>}
                             {task.owner && <Typography variant="caption" color="text.secondary">Owner: {task.owner}</Typography>}
                             {task.dueDate && <Typography variant="caption" color="text.secondary"> · Due: {task.dueDate}</Typography>}
                           </>
@@ -92,7 +92,7 @@ export function MeetingParser() {
           {result.decisions.length > 0 && (
             <Accordion>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="body2" fontWeight={600}>Decisions ({result.decisions.length})</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Decisions ({result.decisions.length})</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <List disablePadding>
@@ -112,7 +112,7 @@ export function MeetingParser() {
           {result.risks.length > 0 && (
             <Accordion>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="body2" fontWeight={600} color="error">Risks ({result.risks.length})</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }} color="error">Risks ({result.risks.length})</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 {result.risks.map((r, i) => (

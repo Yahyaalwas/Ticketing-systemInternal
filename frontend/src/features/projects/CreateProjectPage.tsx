@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { createProject } from '@/api/projects';
+import { projectsApi } from '@/api/projects';
 import { useNotification } from '@/hooks/useNotification';
 
 const schema = z.object({
@@ -27,7 +27,7 @@ export default function CreateProjectPage() {
   });
 
   const mutation = useMutation({
-    mutationFn: createProject,
+    mutationFn: projectsApi.create,
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['projects'] });
       success('Project created successfully');
@@ -36,11 +36,11 @@ export default function CreateProjectPage() {
     onError: (err: Error) => error(err.message),
   });
 
-  const onSubmit = (values: FormValues) => mutation.mutate(values);
+  const onSubmit = (values: FormValues) => mutation.mutate({ projectKey: values.key, name: values.name, description: values.description, leadUserId: '', departmentId: 0 });
 
   return (
     <Box sx={{ maxWidth: 600 }}>
-      <Typography variant="h5" fontWeight={700} mb={3}>Create Project</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>Create Project</Typography>
       <Card>
         <CardContent sx={{ p: 3 }}>
           {mutation.isError && (
@@ -62,7 +62,7 @@ export default function CreateProjectPage() {
               margin="normal"
               error={!!errors.key}
               helperText={errors.key?.message || 'Short uppercase identifier (e.g. ITS, PROJ)'}
-              inputProps={{ style: { textTransform: 'uppercase' } }}
+              slotProps={{ htmlInput: { style: { textTransform: 'uppercase' } } }}
             />
             <TextField
               {...register('description')}

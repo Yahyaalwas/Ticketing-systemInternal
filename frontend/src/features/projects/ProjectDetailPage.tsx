@@ -47,9 +47,9 @@ function KpiCard({ label, value, icon, color, loading }: {
         </Box>
         <Box>
           {loading ? <Skeleton width={48} height={36} /> : (
-            <Typography variant="h4" fontWeight={800} lineHeight={1}>{value}</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1 }}>{value}</Typography>
           )}
-          <Typography variant="caption" color="text.secondary" fontWeight={500}>{label}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{label}</Typography>
         </Box>
       </CardContent>
     </Card>
@@ -173,7 +173,7 @@ export default function ProjectDetailPage() {
       <Box>
         <Skeleton height={40} width="40%" sx={{ mb: 1 }} />
         <Skeleton height={24} width="20%" sx={{ mb: 3 }} />
-        <Grid container spacing={2} mb={3}>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
           {[1, 2, 3, 4, 5, 6, 7].map(i => (
             <Grid key={i} size={{ xs: 12, sm: 6, md: 3, lg: 'auto' }} sx={{ flex: 1 }}>
               <Skeleton variant="rectangular" height={88} sx={{ borderRadius: 1 }} />
@@ -194,7 +194,7 @@ export default function ProjectDetailPage() {
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-            <Typography variant="h4" fontWeight={800}>{project.name}</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800 }}>{project.name}</Typography>
             <Chip label={project.projectKey} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
             {project.isArchived && <Chip label="Archived" size="small" color="warning" />}
             {!project.isArchived && <Chip label="Active" size="small" color="success" />}
@@ -237,7 +237,7 @@ export default function ProjectDetailPage() {
       </Box>
 
       {/* KPI Strip */}
-      <Grid container spacing={2} mb={3}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
           { label: 'Total Tickets', value: report?.metrics.totalTickets ?? project.activeTicketCount, icon: <TotalIcon />, color: KPI_COLORS[0] },
           { label: 'Open', value: report?.metrics.openTickets ?? '—', icon: <BugIcon />, color: KPI_COLORS[1] },
@@ -260,7 +260,7 @@ export default function ProjectDetailPage() {
           <Card sx={{ mb: 3 }}>
             <CardHeader
               avatar={<AiIcon color="primary" />}
-              title={<Typography fontWeight={700}>AI Executive Summary</Typography>}
+              title={<Typography sx={{ fontWeight: 700 }}>AI Executive Summary</Typography>}
               subheader={report ? `${report.periodLabel} · Generated ${formatDistanceToNow(report.generatedAt)}${report.wasFromCache ? ' (cached)' : ''}` : undefined}
               action={
                 <Tooltip title="Refresh report">
@@ -278,11 +278,11 @@ export default function ProjectDetailPage() {
               ) : report ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Box>
-                    <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>SUMMARY</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="text.secondary">SUMMARY</Typography>
                     <Typography variant="body2" sx={{ lineHeight: 1.7 }}>{report.narrativeSummary}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>SLA HEALTH</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="text.secondary">SLA HEALTH</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                       <LinearProgress
                         variant="determinate"
@@ -296,11 +296,11 @@ export default function ProjectDetailPage() {
                         color={report.metrics.slaCompliancePercent >= 90 ? 'success' : report.metrics.slaCompliancePercent >= 70 ? 'warning' : 'error'}
                       />
                     </Box>
-                    <Typography variant="body2" color="text.secondary" mt={0.75}>{report.slaHealthReport}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{report.slaHealthReport}</Typography>
                   </Box>
                   {report.deliveryRisks.length > 0 && (
                     <Box>
-                      <Typography variant="caption" fontWeight={600} color="error" display="block" mb={0.5}>DELIVERY RISKS</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="error">DELIVERY RISKS</Typography>
                       {report.deliveryRisks.map((r, i) => (
                         <Typography key={i} variant="body2" sx={{ mb: 0.25 }}>⚠ {r}</Typography>
                       ))}
@@ -316,7 +316,7 @@ export default function ProjectDetailPage() {
           {/* Sprint Intelligence */}
           {sprintData && (sprintData.atRiskTickets.length > 0 || sprintData.agingTickets.length > 0) && (
             <Card sx={{ mb: 3 }}>
-              <CardHeader title={<Typography fontWeight={700}>⚡ Sprint Intelligence</Typography>} />
+              <CardHeader title={<Typography sx={{ fontWeight: 700 }}>⚡ Sprint Intelligence</Typography>} />
               <CardContent>
                 {sprintData.slaBreachWarnings.length > 0 && (
                   <Alert severity="warning" sx={{ mb: 2 }}>
@@ -327,14 +327,14 @@ export default function ProjectDetailPage() {
                   <Box key={t.ticketKey} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
                     <Chip label={t.severity} size="small" color={t.severity === 'Critical' ? 'error' : t.severity === 'High' ? 'warning' : 'default'} />
                     <Box>
-                      <Typography variant="body2" fontWeight={600}>{t.ticketKey}: {t.title}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{t.ticketKey}: {t.title}</Typography>
                       <Typography variant="caption" color="text.secondary">{t.riskReason}</Typography>
                     </Box>
                   </Box>
                 ))}
                 {sprintData.recommendedActions.length > 0 && (
                   <Box sx={{ mt: 2 }}>
-                    <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>RECOMMENDATIONS</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="text.secondary">RECOMMENDATIONS</Typography>
                     {sprintData.recommendedActions.map((a, i) => (
                       <Typography key={i} variant="body2" sx={{ mb: 0.25 }}>→ {a}</Typography>
                     ))}
@@ -347,7 +347,7 @@ export default function ProjectDetailPage() {
           {/* Recent Tickets */}
           <Card sx={{ mb: 3 }}>
             <CardHeader
-              title={<Typography fontWeight={700}>Tickets</Typography>}
+              title={<Typography sx={{ fontWeight: 700 }}>Tickets</Typography>}
               action={
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <TextField
@@ -355,7 +355,7 @@ export default function ProjectDetailPage() {
                     placeholder="Search tickets..."
                     value={ticketSearch}
                     onChange={(e) => { setTicketSearch(e.target.value); setTicketPage(1); }}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
                     sx={{ width: 220 }}
                   />
                 </Box>
@@ -383,7 +383,7 @@ export default function ProjectDetailPage() {
                     : (ticketsResult?.items ?? []).map(t => (
                         <TableRow key={t.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/tickets/${t.id}`)}>
                           <TableCell>
-                            <Typography variant="caption" fontFamily="monospace" color="primary.main" fontWeight={700}>{t.ticketKey}</Typography>
+                            <Typography variant="caption" sx={{ fontFamily: "monospace", fontWeight: 700 }} color="primary.main">{t.ticketKey}</Typography>
                           </TableCell>
                           <TableCell>
                             <Tooltip title={t.title}>
@@ -436,11 +436,11 @@ export default function ProjectDetailPage() {
           {/* Charts */}
           {statusChartData.length > 0 && (
             <Card sx={{ mb: 3 }}>
-              <CardHeader title={<Typography fontWeight={700}>Ticket Distribution</Typography>} />
+              <CardHeader title={<Typography sx={{ fontWeight: 700 }}>Ticket Distribution</Typography>} />
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
-                    <Pie data={statusChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                    <Pie data={statusChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }: import('recharts').PieLabelRenderProps) => `${name ?? ''} ${(((percent as number | undefined) ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                       {statusChartData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                     </Pie>
                     <RechartTooltip />
@@ -452,11 +452,11 @@ export default function ProjectDetailPage() {
 
           {/* Project Info */}
           <Card sx={{ mb: 3 }}>
-            <CardHeader title={<Typography fontWeight={700}>Project Info</Typography>} />
+            <CardHeader title={<Typography sx={{ fontWeight: 700 }}>Project Info</Typography>} />
             <CardContent>
               {project.description && (
-                <Box mb={2}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>DESCRIPTION</Typography>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }} color="text.secondary">DESCRIPTION</Typography>
                   <Typography variant="body2">{project.description}</Typography>
                 </Box>
               )}
@@ -468,8 +468,8 @@ export default function ProjectDetailPage() {
                 { label: 'UPDATED', value: formatDate((project as any).updatedAt) },
               ].map(({ label, value }) => value && (
                 <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
-                  <Typography variant="caption" fontWeight={500}>{value}</Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }} color="text.secondary">{label}</Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 500 }}>{value}</Typography>
                 </Box>
               ))}
             </CardContent>
@@ -478,7 +478,7 @@ export default function ProjectDetailPage() {
           {/* Team Members */}
           <Card>
             <CardHeader
-              title={<Typography fontWeight={700}>Team ({project.memberCount})</Typography>}
+              title={<Typography sx={{ fontWeight: 700 }}>Team ({project.memberCount})</Typography>}
               action={canManage && (
                 <Tooltip title="Add member">
                   <IconButton size="small" onClick={() => setAddMemberOpen(true)}>
@@ -492,7 +492,7 @@ export default function ProjectDetailPage() {
                 <Box key={m.userId} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <UserAvatar name={m.displayName} avatarUrl={m.avatarUrl} size={32} />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight={600} noWrap>{m.displayName}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>{m.displayName}</Typography>
                     <Typography variant="caption" color="text.secondary">{m.roleName}</Typography>
                   </Box>
                   {canManage && (

@@ -6,7 +6,7 @@ import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { listProjects } from '@/api/projects';
+import { projectsApi } from '@/api/projects';
 import { EmptyState } from '@/components/common/EmptyState';
 
 export default function ProjectListPage() {
@@ -15,15 +15,15 @@ export default function ProjectListPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects', search],
-    queryFn: () => listProjects({ search: search || undefined }),
+    queryFn: () => projectsApi.list({ search: search || undefined }),
   });
 
-  const projects = data?.items ?? [];
+  const projects: import('@/types').ProjectSummary[] = data?.items ?? [];
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Projects</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Projects</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/projects/new')}>
           New Project
         </Button>
@@ -35,9 +35,7 @@ export default function ProjectListPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         sx={{ mb: 3, width: 320 }}
-        InputProps={{
-          startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
-        }}
+        slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
       />
 
       {isLoading ? (
@@ -63,16 +61,16 @@ export default function ProjectListPage() {
                 <CardActionArea onClick={() => navigate(`/projects/${p.id}`)} sx={{ height: '100%' }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="caption" fontFamily="monospace" color="text.secondary">
-                        {p.key}
+                      <Typography variant="caption" sx={{ fontFamily: "monospace" }} color="text.secondary">
+                        {p.projectKey}
                       </Typography>
                       <Chip
-                        label={p.status}
+                        label={p.isArchived ? 'Archived' : 'Active'}
                         size="small"
-                        color={p.status === 'Active' ? 'success' : 'default'}
+                        color={p.isArchived ? 'default' : 'success'}
                       />
                     </Box>
-                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>{p.name}</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }} gutterBottom>{p.name}</Typography>
                     <Typography variant="body2" color="text.secondary" noWrap>
                       {p.description || 'No description'}
                     </Typography>
@@ -81,7 +79,7 @@ export default function ProjectListPage() {
                         {p.memberCount} members
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {p.ticketCount} tickets
+                        {p.memberCount} tickets
                       </Typography>
                     </Box>
                   </CardContent>

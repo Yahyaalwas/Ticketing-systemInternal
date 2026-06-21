@@ -35,7 +35,7 @@ export function NaturalLanguageSearch() {
   return (
     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%', overflow: 'auto' }}>
       <Box>
-        <Typography variant="subtitle2" fontWeight={600} mb={1}>Natural Language Search</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Natural Language Search</Typography>
         <Typography variant="caption" color="text.secondary">
           Describe what you're looking for in plain English
         </Typography>
@@ -68,13 +68,13 @@ export function NaturalLanguageSearch() {
       {result && (
         <Box>
           <Paper elevation={0} sx={{ p: 1.5, mb: 2, bgcolor: 'primary.light', borderRadius: 1.5 }}>
-            <Typography variant="caption" color="primary.contrastText" fontWeight={600}>
+            <Typography variant="caption" color="primary.contrastText" sx={{ fontWeight: 600 }}>
               AI Interpretation:
             </Typography>
             <Typography variant="body2" color="primary.contrastText">{result.interpretation}</Typography>
           </Paper>
 
-          <Typography variant="caption" color="text.secondary" mb={1} display="block">
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
             {result.tickets.length} result(s)
           </Typography>
 
@@ -92,7 +92,7 @@ export function NaturalLanguageSearch() {
                 {result.tickets.slice(0, 20).map((t) => (
                   <TableRow key={t.id} hover>
                     <TableCell>
-                      <Typography variant="caption" fontFamily="monospace" color={t.isOverdue ? 'error' : 'primary.main'}>
+                      <Typography variant="caption" sx={{ fontFamily: "monospace" }} color={t.isOverdue ? 'error' : 'primary.main'}>
                         {t.ticketKey}
                       </Typography>
                     </TableCell>

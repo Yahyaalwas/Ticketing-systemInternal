@@ -84,7 +84,7 @@ export function ChatInterface() {
         {messages.length === 0 && (
           <Box sx={{ textAlign: 'center', pt: 4 }}>
             <AiIcon sx={{ fontSize: 48, color: 'primary.light', mb: 1 }} />
-            <Typography variant="body2" color="text.secondary" mb={2}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Ask me about your tickets, search by natural language, or get insights about your project.
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, justifyContent: 'center' }}>

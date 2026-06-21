@@ -59,7 +59,7 @@ export function AiAssistantPanel() {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="subtitle1" fontWeight={700}>AI Assistant</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>AI Assistant</Typography>
           <Chip label="Beta" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'inherit', height: 18, fontSize: 10 }} />
         </Box>
         <IconButton size="small" onClick={closePanel} sx={{ color: 'inherit' }}>
