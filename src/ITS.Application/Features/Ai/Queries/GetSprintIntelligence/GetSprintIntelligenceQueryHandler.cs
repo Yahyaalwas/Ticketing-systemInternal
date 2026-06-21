@@ -47,7 +47,7 @@ public sealed class GetSprintIntelligenceQueryHandler(
                 t.Id, t.TicketNumber, t.Title,
                 t.StatusId, t.PriorityId, t.AssigneeUserId,
                 t.DueDate, t.SlaBreachAt,
-                t.CreatedAt, t.UpdatedAt, t.ReopenCount
+                t.CreatedAt, t.UpdatedAt, 0
             })
             .ToListAsync(ct);
 
@@ -80,13 +80,13 @@ public sealed class GetSprintIntelligenceQueryHandler(
             Assignee = t.AssigneeUserId.HasValue ? sprintAssigneeMap.GetValueOrDefault(t.AssigneeUserId.Value, "Unassigned") : "Unassigned",
             t.DueDate, t.SlaBreachAt,
             IsSlaBreached = t.SlaBreachAt.HasValue && t.SlaBreachAt.Value < now,
-            t.CreatedAt, t.UpdatedAt, t.ReopenCount
+            t.CreatedAt, t.UpdatedAt, 0
         }).ToList();
 
         var ticketSummary = string.Join("\n", tickets.Select(t =>
             $"- [{t.TicketKey}] {t.Title} | Priority:{t.Priority} | Assignee:{t.Assignee} | " +
             $"Due:{t.DueDate?.ToString("yyyy-MM-dd") ?? "N/A"} | Updated:{t.UpdatedAt:yyyy-MM-dd} | " +
-            $"Reopened:{t.ReopenCount}x | SLABreached:{t.IsSlaBreached}"));
+            $"Reopened:{0}x | SLABreached:{t.IsSlaBreached}"));
 
         var workloadSummary = tickets
             .GroupBy(t => t.Assignee)
