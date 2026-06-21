@@ -1,12 +1,12 @@
-using ITS.Domain.Entities.Workflow;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using WorkflowEntity = ITS.Domain.Entities.Workflow.Workflow;
 
 namespace ITS.Infrastructure.Persistence.Configurations.Workflow;
 
-public class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
+public class WorkflowConfiguration : IEntityTypeConfiguration<WorkflowEntity>
 {
-    public void Configure(EntityTypeBuilder<Workflow> builder)
+    public void Configure(EntityTypeBuilder<WorkflowEntity> builder)
     {
         builder.ToTable("Workflows", "workflow");
         builder.HasKey(w => w.Id);
