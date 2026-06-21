@@ -47,7 +47,7 @@ public sealed class GetSprintIntelligenceQueryHandler(
                 t.Id, t.TicketNumber, t.Title,
                 t.StatusId, t.PriorityId, t.AssigneeUserId,
                 t.DueDate, t.SlaBreachAt,
-                t.CreatedAt, t.UpdatedAt, 0
+                t.CreatedAt, t.UpdatedAt
             })
             .ToListAsync(ct);
 
@@ -80,7 +80,7 @@ public sealed class GetSprintIntelligenceQueryHandler(
             Assignee = t.AssigneeUserId.HasValue ? sprintAssigneeMap.GetValueOrDefault(t.AssigneeUserId.Value, "Unassigned") : "Unassigned",
             t.DueDate, t.SlaBreachAt,
             IsSlaBreached = t.SlaBreachAt.HasValue && t.SlaBreachAt.Value < now,
-            t.CreatedAt, t.UpdatedAt, 0
+            t.CreatedAt, t.UpdatedAt
         }).ToList();
 
         var ticketSummary = string.Join("\n", tickets.Select(t =>

@@ -38,7 +38,7 @@ public sealed class GetRiskAnalysisQueryHandler(
             {
                 t.Id, t.TicketNumber, t.ProjectId, t.Title,
                 t.AssigneeUserId, t.DueDate,
-                t.UpdatedAt, 0,
+                t.UpdatedAt,
                 t.SlaBreachAt, t.CreatedAt,
                 t.PriorityId,
                 HasBlockers = t.OutboundLinks.Any()
@@ -62,7 +62,7 @@ public sealed class GetRiskAnalysisQueryHandler(
             t.Id,
             TicketKey = $"{projectMap.GetValueOrDefault(t.ProjectId, "")}-{t.TicketNumber}",
             t.Title,
-            t.AssigneeUserId, t.DueDate, t.UpdatedAt, 0, t.SlaBreachAt, t.CreatedAt,
+            t.AssigneeUserId, t.DueDate, t.UpdatedAt, t.SlaBreachAt, t.CreatedAt,
             Priority = t.PriorityId.HasValue ? priorityMap.GetValueOrDefault(t.PriorityId.Value, "None") : "None",
             IsSlaBreached = t.SlaBreachAt.HasValue && t.SlaBreachAt.Value < now,
             t.HasBlockers
@@ -87,10 +87,6 @@ public sealed class GetRiskAnalysisQueryHandler(
             if (t.UpdatedAt < inactivityThreshold)
                 risks.Add(new TicketRisk(t.Id, t.TicketKey, t.Title, "Inactive",
                     $"No activity for {(now - t.UpdatedAt).Days} days.", "Medium"));
-
-            if (0 >= 3)
-                risks.Add(new TicketRisk(t.Id, t.TicketKey, t.Title, "FrequentlyReopened",
-                    $"Reopened {0} times — root cause may not be resolved.", "High"));
 
             if (t.IsSlaBreached)
                 risks.Add(new TicketRisk(t.Id, t.TicketKey, t.Title, "SlaBreached",
