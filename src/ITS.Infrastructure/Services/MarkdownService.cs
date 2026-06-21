@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Ganss.Xss;
+using Ganss.Xss; // provided by the HtmlSanitizer NuGet package
 using ITS.Application.Common.Interfaces;
 using Markdig;
 

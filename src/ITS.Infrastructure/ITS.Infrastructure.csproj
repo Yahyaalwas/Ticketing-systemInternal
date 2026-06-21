@@ -26,7 +26,7 @@
     <PackageReference Include="MediatR" Version="12.4.1" />
     <PackageReference Include="Novell.Directory.Ldap.NETStandard" Version="3.6.0" />
     <PackageReference Include="Markdig" Version="0.37.0" />
-    <PackageReference Include="Ganss.Xss" Version="2.2.0" />
+    <PackageReference Include="HtmlSanitizer" Version="8.1.870" />
   </ItemGroup>
 
 </Project>
