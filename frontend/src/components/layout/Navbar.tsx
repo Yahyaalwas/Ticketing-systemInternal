@@ -40,6 +40,7 @@ export function Navbar({ height }: NavbarProps) {
     <AppBar
       position="fixed"
       elevation={0}
+      aria-label="Application navigation"
       sx={{
         bgcolor: 'background.paper',
         color: 'text.primary',
@@ -56,13 +57,13 @@ export function Navbar({ height }: NavbarProps) {
         <Box sx={{ flexGrow: 1 }} />
 
         <Tooltip title={colorMode === 'light' ? 'Dark mode' : 'Light mode'}>
-          <IconButton onClick={toggleColorMode} size="small">
+          <IconButton onClick={toggleColorMode} size="small" aria-label={colorMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
             {colorMode === 'dark' ? <LightIcon /> : <DarkIcon />}
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Notifications">
-          <IconButton size="small" onClick={(e) => setNotifAnchor(e.currentTarget)}>
+          <IconButton size="small" aria-label="Notifications" onClick={(e) => setNotifAnchor(e.currentTarget)}>
             <Badge badgeContent={3} color="error">
               <NotificationsIcon />
             </Badge>
@@ -70,7 +71,7 @@ export function Navbar({ height }: NavbarProps) {
         </Tooltip>
 
         <Tooltip title={user?.displayName ?? 'Account'}>
-          <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}>
+          <IconButton size="small" aria-label={`User menu for ${user?.displayName ?? 'Account'}`} onClick={(e) => setAnchorEl(e.currentTarget)}>
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 13 }}>
               {initials}
             </Avatar>

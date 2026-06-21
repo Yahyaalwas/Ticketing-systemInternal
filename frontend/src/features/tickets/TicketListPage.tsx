@@ -60,7 +60,7 @@ export default function TicketListPage() {
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           sx={{ width: 280 }}
           slotProps={{
-            input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> },
+            input: { 'aria-label': 'Search tickets', startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> },
           }}
         />
         <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -76,7 +76,7 @@ export default function TicketListPage() {
       </Box>
 
       <Box sx={{ bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-        <Table>
+        <Table aria-label="Tickets table">
           <TableHead>
             <TableRow>
               <TableCell width={100}>Key</TableCell>

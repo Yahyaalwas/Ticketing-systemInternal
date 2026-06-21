@@ -6,6 +6,7 @@ import {
   BugReport as BugIcon, CheckCircle as DoneIcon,
   Warning as OverdueIcon, Assignment as TotalIcon,
 } from '@mui/icons-material';
+import { memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { dashboardApi } from '@/api/dashboard';
@@ -23,7 +24,7 @@ interface KpiCardProps {
   loading?: boolean;
 }
 
-function KpiCard({ title, value, icon, color, loading }: KpiCardProps) {
+const KpiCard = memo(function KpiCard({ title, value, icon, color, loading }: KpiCardProps) {
   return (
     <Card>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -39,7 +40,7 @@ function KpiCard({ title, value, icon, color, loading }: KpiCardProps) {
       </CardContent>
     </Card>
   );
-}
+});
 
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get });

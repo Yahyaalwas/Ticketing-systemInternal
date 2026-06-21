@@ -1,0 +1,55 @@
+version: "3.9"
+
+# Development overrides — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  sqlserver:
+    ports:
+      - "1433:1433"
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Dev@SqlPass123!}"
+
+  api:
+    build:
+      context: ./src/ITS.Api
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "5000:8080"
+      - "5001:8081"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:8080;https://+:8081"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=ITS_Dev;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Dev@SqlPass123!};TrustServerCertificate=True;MultipleActiveResultSets=True"
+      Jwt__Key: "${Jwt__Key:-dev-jwt-secret-key-min-32-chars-long!!}"
+      Jwt__Issuer: "http://localhost:5000"
+      Jwt__Audience: "http://localhost:3000"
+      Jwt__ExpiryHours: "24"
+      FileStorage__BasePath: /app/attachments
+      FileStorage__BaseUrl: "http://localhost:5000/files"
+      Cors__AllowedOrigins__0: "http://localhost:5173"
+      Cors__AllowedOrigins__1: "http://localhost:3000"
+      Ai__Provider: "${Ai__Provider:-Mock}"
+      Serilog__MinimumLevel__Default: "Debug"
+      Serilog__MinimumLevel__Override__Microsoft: "Information"
+      Serilog__MinimumLevel__Override__Microsoft__EntityFrameworkCore__Database__Command: "Information"
+    volumes:
+      - ./src:/src:ro
+      - api_logs:/app/logs
+      - api_attachments:/app/attachments
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: "http://localhost:5000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    depends_on:
+      - api

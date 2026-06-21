@@ -5,7 +5,7 @@ import {
 import {
   Search as SearchIcon, Comment as CommentIcon, Attachment as AttachIcon,
 } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -34,7 +34,7 @@ interface TicketCardProps {
   overlay?: boolean;
 }
 
-function TicketCard({ ticket, overlay }: TicketCardProps) {
+const TicketCard = memo(function TicketCard({ ticket, overlay }: TicketCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ticket.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -44,11 +44,19 @@ function TicketCard({ ticket, overlay }: TicketCardProps) {
 
   const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      (e.currentTarget as HTMLElement).focus();
+    }
+  };
+
   return (
     <Card
       ref={overlay ? undefined : setNodeRef}
       style={overlay ? undefined : style}
       {...(overlay ? {} : { ...attributes, ...listeners })}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       sx={{
         mb: 1, cursor: 'grab', boxShadow: overlay ? 4 : 1,
         '&:hover': { boxShadow: 3 },
@@ -106,7 +114,7 @@ function TicketCard({ ticket, overlay }: TicketCardProps) {
       </CardContent>
     </Card>
   );
-}
+});
 
 // ─── Column ────────────────────────────────────────────────────────────────────
 
@@ -117,12 +125,14 @@ interface ColumnProps {
   };
 }
 
-function KanbanColumn({ column }: ColumnProps) {
+const KanbanColumn = memo(function KanbanColumn({ column }: ColumnProps) {
   const ticketIds = column.tickets.map((t) => t.id);
   const overWip = column.wipLimit != null && column.tickets.length > column.wipLimit;
 
   return (
     <Box
+      role="region"
+      aria-label={column.statusName}
       sx={{
         width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column',
         bgcolor: 'action.hover', borderRadius: 2, overflow: 'hidden',
@@ -149,7 +159,7 @@ function KanbanColumn({ column }: ColumnProps) {
       </Box>
     </Box>
   );
-}
+});
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -176,12 +186,12 @@ export default function KanbanPage() {
 
   const allTickets = data?.columns.flatMap((c) => c.tickets) ?? [];
 
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     const ticket = allTickets.find((t) => t.id === event.active.id);
     setActiveTicket(ticket ?? null);
-  };
+  }, [allTickets]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     setActiveTicket(null);
     const { active, over } = event;
     if (!over || active.id === over.id || !data) return;
@@ -198,7 +208,7 @@ export default function KanbanPage() {
 
     const movedTicket = allTickets.find((t) => t.id === String(active.id));
     transitionMutation.mutate({ ticketId: String(active.id), statusId: targetColumn.statusId, etag: movedTicket?.rowVersion ?? '' });
-  };
+  }, [allTickets, data, transitionMutation]);
 
   if (!projectId) {
     return (
@@ -230,7 +240,7 @@ export default function KanbanPage() {
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: 240 }}
           slotProps={{
-            input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> },
+            input: { 'aria-label': 'Search tickets', startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> },
           }}
         />
       </Box>

@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageSkeleton } from '@/components/common/PageSkeleton';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useAuthStore } from '@/stores/authStore';
 
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
@@ -22,7 +23,11 @@ function RequireAuth() {
 }
 
 function S({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+    </ErrorBoundary>
+  );
 }
 
 export const router = createBrowserRouter([

@@ -1,0 +1,107 @@
+version: "3.9"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: its-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_PID: "Standard"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - its-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" -C -b -o /dev/null",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  api:
+    build:
+      context: ./src/ITS.Api
+      dockerfile: Dockerfile
+    container_name: its-api
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "${ConnectionStrings__DefaultConnection}"
+      Jwt__Key: "${Jwt__Key}"
+      Jwt__Issuer: "${Jwt__Issuer}"
+      Jwt__Audience: "${Jwt__Audience}"
+      Jwt__ExpiryHours: "${Jwt__ExpiryHours:-8}"
+      ActiveDirectory__Host: "${ActiveDirectory__Host}"
+      ActiveDirectory__Port: "${ActiveDirectory__Port:-389}"
+      ActiveDirectory__BindDn: "${ActiveDirectory__BindDn}"
+      ActiveDirectory__BindPassword: "${ActiveDirectory__BindPassword}"
+      ActiveDirectory__SearchBase: "${ActiveDirectory__SearchBase}"
+      ActiveDirectory__Domain: "${ActiveDirectory__Domain}"
+      FileStorage__BasePath: /app/attachments
+      FileStorage__BaseUrl: "${FileStorage__BaseUrl}"
+      Email__FromAddress: "${Email__FromAddress}"
+      Email__FromName: "${Email__FromName:-ITS - Issue Tracking System}"
+      Email__SmtpHost: "${Email__SmtpHost}"
+      Email__SmtpPort: "${Email__SmtpPort:-25}"
+      Email__EnableSsl: "${Email__EnableSsl:-false}"
+      Email__SmtpUsername: "${Email__SmtpUsername}"
+      Email__SmtpPassword: "${Email__SmtpPassword}"
+      Cors__AllowedOrigins__0: "${Cors__AllowedOrigins__0}"
+      Ai__Provider: "${Ai__Provider:-Mock}"
+      Ai__OpenAi__ApiKey: "${Ai__OpenAi__ApiKey}"
+      Ai__OpenAi__Model: "${Ai__OpenAi__Model:-gpt-4o-mini}"
+      Ai__AzureOpenAi__Endpoint: "${Ai__AzureOpenAi__Endpoint}"
+      Ai__AzureOpenAi__ApiKey: "${Ai__AzureOpenAi__ApiKey}"
+      Ai__AzureOpenAi__DeploymentName: "${Ai__AzureOpenAi__DeploymentName}"
+      Serilog__MinimumLevel__Default: "${Serilog__MinimumLevel__Default:-Warning}"
+    volumes:
+      - api_logs:/app/logs
+      - api_attachments:/app/attachments
+    networks:
+      - its-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-http://localhost:5000}"
+    container_name: its-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - its-network
+
+volumes:
+  sqlserver_data:
+    driver: local
+  api_logs:
+    driver: local
+  api_attachments:
+    driver: local
+
+networks:
+  its-network:
+    driver: bridge

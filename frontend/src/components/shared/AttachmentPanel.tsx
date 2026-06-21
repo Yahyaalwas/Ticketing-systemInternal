@@ -79,6 +79,10 @@ export function AttachmentPanel({ ticketId, readonly = false }: AttachmentPanelP
       {/* Drop zone */}
       {!readonly && (
         <Box
+          role="button"
+          aria-label="Upload attachments: click or drag and drop files here"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={onDrop}
@@ -105,6 +109,7 @@ export function AttachmentPanel({ ticketId, readonly = false }: AttachmentPanelP
             ref={fileInputRef}
             type="file"
             multiple
+            aria-label="Upload files"
             style={{ display: 'none' }}
             onChange={e => handleFiles(e.target.files)}
           />

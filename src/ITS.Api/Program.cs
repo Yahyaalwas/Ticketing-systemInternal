@@ -75,6 +75,7 @@ try
 
     // Middleware pipeline (order matters)
     app.UseExceptionHandler();
+    app.UseMiddleware<ITS.Api.Middleware.SecurityHeadersMiddleware>();
 
     if (app.Environment.IsDevelopment())
     {

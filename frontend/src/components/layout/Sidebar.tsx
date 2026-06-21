@@ -77,7 +77,7 @@ export function Sidebar({ width, collapsedWidth, navbarHeight }: SidebarProps) {
         </IconButton>
       </Box>
 
-      <List sx={{ pt: 1 }}>
+      <List sx={{ pt: 1 }} aria-label="Main navigation">
         {NAV_ITEMS.map(({ label, icon, to }) => {
           const active = location.pathname.startsWith(to);
           return (
@@ -86,6 +86,7 @@ export function Sidebar({ width, collapsedWidth, navbarHeight }: SidebarProps) {
                 <ListItemButton
                   component={NavLink}
                   to={to}
+                  aria-current={active ? 'page' : undefined}
                   sx={{
                     minHeight: 44,
                     justifyContent: sidebarOpen ? 'initial' : 'center',
