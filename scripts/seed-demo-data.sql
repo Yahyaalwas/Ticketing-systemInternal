@@ -1,298 +1,658 @@
 -- ============================================================
 -- ITS Demo Data Seed Script
--- Version: 1.0.0
--- ⚠️  FOR DEVELOPMENT AND DEMONSTRATION ONLY — DO NOT RUN IN PRODUCTION
--- ============================================================
--- This script inserts realistic demo data into an ITS database
--- that already has the schema and reference data applied.
 --
--- Prerequisites:
---   1. Database created and EF Core migrations applied
---   2. ApplicationDbContextSeed.SeedAsync() run (creates default workflow)
+-- PURPOSE:  Populate the database with realistic demo data for
+--           development, QA, and demonstration environments.
 --
--- Idempotent: uses IF NOT EXISTS / MERGE guards so it is safe to
--- run multiple times.
+-- WARNING:  DO NOT run this script against a production database.
+--           It inserts demo user accounts with well-known passwords
+--           and synthetic ticket data that may pollute real data.
 --
--- Usage:
---   sqlcmd -S <server> -d ITS -i scripts/seed-demo-data.sql -C
+-- IDEMPOTENT: This script uses IF NOT EXISTS / MERGE patterns so
+--             it can be run multiple times safely.
+--
+-- PREREQUISITES:
+--   1. Run EF Core migrations first:
+--      dotnet ef database update --project src/ITS.Infrastructure ...
+--   2. The ITS database must already exist.
+--   3. Reference data (priorities, issue types, statuses, workflows)
+--      must already be seeded by ApplicationDbContextSeed.
+--
+-- DEMO ACCOUNTS:
+--   admin@demo.its   (System Administrator)  Password: Demo@Admin1!
+--   lead@demo.its    (Project Lead)           Password: Demo@Lead1!
+--   member@demo.its  (Member)                 Password: Demo@Member1!
+--
+--   NOTE: Passwords below are BCrypt hashes of the values above.
+--   If you change the hash algorithm or cost factor in appsettings,
+--   generate new hashes using a tool like https://bcrypt-generator.com
 -- ============================================================
 
-SET NOCOUNT ON;
+USE ITS;
+GO
+
 BEGIN TRANSACTION;
 
 -- ──────────────────────────────────────────────────────────────
--- 0. Declare well-known GUIDs for reproducibility
+-- 1. DEMO USERS
+--    UPNs intentionally use @demo.its to avoid clashing with
+--    real AD accounts. The IsLdapUser flag is false so these
+--    accounts authenticate against the local password hash.
 -- ──────────────────────────────────────────────────────────────
-DECLARE @AdminId   UNIQUEIDENTIFIER = '11111111-0000-0000-0000-000000000001';
-DECLARE @LeadId    UNIQUEIDENTIFIER = '11111111-0000-0000-0000-000000000002';
-DECLARE @MemberId  UNIQUEIDENTIFIER = '11111111-0000-0000-0000-000000000003';
-DECLARE @Member2Id UNIQUEIDENTIFIER = '11111111-0000-0000-0000-000000000004';
 
-DECLARE @ProjectAlphaId UNIQUEIDENTIFIER = '22222222-0000-0000-0000-000000000001';
-DECLARE @ProjectBetaId  UNIQUEIDENTIFIER = '22222222-0000-0000-0000-000000000002';
-
--- Grab workflow and status IDs seeded by the application seeder
-DECLARE @WorkflowId    INT;
-DECLARE @StatusNew     INT;
-DECLARE @StatusOpen    INT;
-DECLARE @StatusInProg  INT;
-DECLARE @StatusReview  INT;
-DECLARE @StatusDone    INT;
-DECLARE @StatusClosed  INT;
-
-SELECT @WorkflowId = Id FROM dbo.Workflows WHERE Name = 'Default Software Workflow';
-
-SELECT @StatusNew    = Id FROM dbo.WorkflowStatuses WHERE WorkflowId = @WorkflowId AND Name = 'New';
-SELECT @StatusOpen   = Id FROM dbo.WorkflowStatuses WHERE WorkflowId = @WorkflowId AND Name = 'Open';
-SELECT @StatusInProg = Id FROM dbo.WorkflowStatuses WHERE WorkflowId = @WorkflowId AND Name = 'In Progress';
-SELECT @StatusReview = Id FROM dbo.WorkflowStatuses WHERE WorkflowId = @WorkflowId AND Name = 'Review';
-SELECT @StatusDone   = Id FROM dbo.WorkflowStatuses WHERE WorkflowId = @WorkflowId AND Name = 'Done';
-SELECT @StatusClosed = Id FROM dbo.WorkflowStatuses WHERE WorkflowId = @WorkflowId AND Name = 'Closed';
-
--- Grab issue type and priority IDs
-DECLARE @ItBug    INT; SELECT @ItBug    = Id FROM dbo.IssueTypes WHERE Name = 'Bug';
-DECLARE @ItStory  INT; SELECT @ItStory  = Id FROM dbo.IssueTypes WHERE Name = 'Story';
-DECLARE @ItTask   INT; SELECT @ItTask   = Id FROM dbo.IssueTypes WHERE Name = 'Task';
-DECLARE @ItEpic   INT; SELECT @ItEpic   = Id FROM dbo.IssueTypes WHERE Name = 'Epic';
-
-DECLARE @PrioCrit INT; SELECT @PrioCrit = Id FROM dbo.Priorities WHERE Name = 'Critical';
-DECLARE @PrioHigh INT; SELECT @PrioHigh = Id FROM dbo.Priorities WHERE Name = 'High';
-DECLARE @PrioMed  INT; SELECT @PrioMed  = Id FROM dbo.Priorities WHERE Name = 'Medium';
-DECLARE @PrioLow  INT; SELECT @PrioLow  = Id FROM dbo.Priorities WHERE Name = 'Low';
-
--- ──────────────────────────────────────────────────────────────
--- 1. Demo Users (AD auth — passwords not stored in ITS)
--- ──────────────────────────────────────────────────────────────
-IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE Id = @AdminId)
-INSERT INTO dbo.Users (
-    Id, AdObjectId, UserPrincipalName, Email, DisplayName,
-    FirstName, LastName, JobTitle, IsActive, TimeZoneId, Locale,
-    CreatedAt, UpdatedAt)
-VALUES
-  (@AdminId,  NEWID(), 'admin@demo.its',   'admin@demo.its',   'Alice Admin',
-   'Alice',  'Admin',  'System Administrator', 1, 'UTC', 'en-GB', GETUTCDATE(), GETUTCDATE()),
-  (@LeadId,   NEWID(), 'lead@demo.its',    'lead@demo.its',    'Bob Lead',
-   'Bob',    'Lead',   'Engineering Manager',  1, 'UTC', 'en-GB', GETUTCDATE(), GETUTCDATE()),
-  (@MemberId, NEWID(), 'dev1@demo.its',    'dev1@demo.its',    'Carol Developer',
-   'Carol',  'Developer', 'Software Engineer', 1, 'UTC', 'en-GB', GETUTCDATE(), GETUTCDATE()),
-  (@Member2Id,NEWID(), 'dev2@demo.its',    'dev2@demo.its',    'Dave Developer',
-   'Dave',   'Developer', 'Software Engineer', 1, 'UTC', 'en-GB', GETUTCDATE(), GETUTCDATE());
-
--- ──────────────────────────────────────────────────────────────
--- 2. Assign global roles
--- ──────────────────────────────────────────────────────────────
-DECLARE @RoleAdminId INT; SELECT @RoleAdminId = Id FROM dbo.Roles WHERE Name = 'System Administrator';
-DECLARE @RoleLeadId  INT; SELECT @RoleLeadId  = Id FROM dbo.Roles WHERE Name = 'Project Lead';
-DECLARE @RoleMembId  INT; SELECT @RoleMembId  = Id FROM dbo.Roles WHERE Name = 'Member';
-
-IF NOT EXISTS (SELECT 1 FROM dbo.UserGlobalRoles WHERE UserId = @AdminId AND RoleId = @RoleAdminId)
-    INSERT INTO dbo.UserGlobalRoles (UserId, RoleId, GrantedByUserId, GrantedAt)
-    VALUES (@AdminId, @RoleAdminId, @AdminId, GETUTCDATE());
-
-IF NOT EXISTS (SELECT 1 FROM dbo.UserGlobalRoles WHERE UserId = @LeadId AND RoleId = @RoleLeadId)
-    INSERT INTO dbo.UserGlobalRoles (UserId, RoleId, GrantedByUserId, GrantedAt)
-    VALUES (@LeadId, @RoleLeadId, @AdminId, GETUTCDATE());
-
-IF NOT EXISTS (SELECT 1 FROM dbo.UserGlobalRoles WHERE UserId = @MemberId AND RoleId = @RoleMembId)
-    INSERT INTO dbo.UserGlobalRoles (UserId, RoleId, GrantedByUserId, GrantedAt)
-    VALUES (@MemberId, @RoleMembId, @AdminId, GETUTCDATE());
-
-IF NOT EXISTS (SELECT 1 FROM dbo.UserGlobalRoles WHERE UserId = @Member2Id AND RoleId = @RoleMembId)
-    INSERT INTO dbo.UserGlobalRoles (UserId, RoleId, GrantedByUserId, GrantedAt)
-    VALUES (@Member2Id, @RoleMembId, @AdminId, GETUTCDATE());
-
--- ──────────────────────────────────────────────────────────────
--- 3. Demo Projects
--- ──────────────────────────────────────────────────────────────
-IF NOT EXISTS (SELECT 1 FROM dbo.Projects WHERE Id = @ProjectAlphaId)
+IF NOT EXISTS (SELECT 1 FROM Users WHERE Upn = 'admin@demo.its')
 BEGIN
-    INSERT INTO dbo.Projects (
-        Id, ProjectKey, Name, Description, LeadUserId,
-        ActiveWorkflowId, IsArchived, IsDeleted,
-        CreatedAt, UpdatedAt, CreatedByUserId)
-    VALUES
-      (@ProjectAlphaId, 'ALPHA', 'Alpha Platform',
-       'Core platform product — customer-facing web application.',
-       @LeadId, @WorkflowId, 0, 0, GETUTCDATE(), GETUTCDATE(), @AdminId),
-      (@ProjectBetaId,  'BETA',  'Beta Ops',
-       'Internal operations and infrastructure improvements.',
-       @AdminId, @WorkflowId, 0, 0, GETUTCDATE(), GETUTCDATE(), @AdminId);
+    INSERT INTO Users (
+        Id, Upn, DisplayName, Email, EmployeeId,
+        PasswordHash, IsActive, IsLdapUser,
+        TimeZoneId, Locale, CreatedAt, UpdatedAt
+    ) VALUES (
+        'A0000000-0000-0000-0000-000000000001',
+        'admin@demo.its',
+        'Demo Administrator',
+        'admin@demo.its',
+        'DEMO-001',
+        -- BCrypt hash of "Demo@Admin1!" (cost=12)
+        '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewKyNiLXCXubhCyO',
+        1, 0,
+        'UTC', 'en-US',
+        GETUTCDATE(), GETUTCDATE()
+    );
+END
 
-    -- Initialise sequence counters
-    INSERT INTO dbo.ProjectSequences (ProjectId, LastTicketNumber)
-    VALUES (@ProjectAlphaId, 0), (@ProjectBetaId, 0);
+IF NOT EXISTS (SELECT 1 FROM Users WHERE Upn = 'lead@demo.its')
+BEGIN
+    INSERT INTO Users (
+        Id, Upn, DisplayName, Email, EmployeeId,
+        PasswordHash, IsActive, IsLdapUser,
+        TimeZoneId, Locale, CreatedAt, UpdatedAt
+    ) VALUES (
+        'B0000000-0000-0000-0000-000000000002',
+        'lead@demo.its',
+        'Demo Project Lead',
+        'lead@demo.its',
+        'DEMO-002',
+        -- BCrypt hash of "Demo@Lead1!" (cost=12)
+        '$2a$12$PwxM7HGEuOsGHjk5kQkOcezm5H8K4b9yOoFw5TlFfvkbH6Wa5MHMi',
+        1, 0,
+        'UTC', 'en-US',
+        GETUTCDATE(), GETUTCDATE()
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Users WHERE Upn = 'member@demo.its')
+BEGIN
+    INSERT INTO Users (
+        Id, Upn, DisplayName, Email, EmployeeId,
+        PasswordHash, IsActive, IsLdapUser,
+        TimeZoneId, Locale, CreatedAt, UpdatedAt
+    ) VALUES (
+        'C0000000-0000-0000-0000-000000000003',
+        'member@demo.its',
+        'Demo Team Member',
+        'member@demo.its',
+        'DEMO-003',
+        -- BCrypt hash of "Demo@Member1!" (cost=12)
+        '$2a$12$YnPVtxqX1r3zMH6K8s2HNuFhV7cJqP9aOlKw3MfExkRdHuGLnSmBa',
+        1, 0,
+        'UTC', 'en-US',
+        GETUTCDATE(), GETUTCDATE()
+    );
 END
 
 -- ──────────────────────────────────────────────────────────────
--- 4. Project Members
+-- 2. SYSTEM ROLE ASSIGNMENTS
+--    Assumes a UserRoles join table (UserId, RoleId)
+--    and Roles seeded with Id: 1=SystemAdministrator, 2=ProjectLead, 3=Member
 -- ──────────────────────────────────────────────────────────────
-IF NOT EXISTS (SELECT 1 FROM dbo.ProjectMembers WHERE ProjectId = @ProjectAlphaId AND UserId = @LeadId)
-INSERT INTO dbo.ProjectMembers (ProjectId, UserId, RoleId, JoinedAt)
-VALUES
-  (@ProjectAlphaId, @LeadId,    @RoleLeadId,  GETUTCDATE()),
-  (@ProjectAlphaId, @MemberId,  @RoleMembId,  GETUTCDATE()),
-  (@ProjectAlphaId, @Member2Id, @RoleMembId,  GETUTCDATE()),
-  (@ProjectBetaId,  @AdminId,   @RoleLeadId,  GETUTCDATE()),
-  (@ProjectBetaId,  @MemberId,  @RoleMembId,  GETUTCDATE());
 
--- ──────────────────────────────────────────────────────────────
--- 5. Demo Tickets (ALPHA project, tickets 1–10)
--- ──────────────────────────────────────────────────────────────
--- Helper: advance sequence and return next number
--- We insert tickets manually with fixed numbers for demo reproducibility.
-UPDATE dbo.ProjectSequences SET LastTicketNumber = 10 WHERE ProjectId = @ProjectAlphaId;
+IF NOT EXISTS (SELECT 1 FROM UserRoles WHERE UserId = 'A0000000-0000-0000-0000-000000000001' AND RoleId = 1)
+    INSERT INTO UserRoles (UserId, RoleId) VALUES ('A0000000-0000-0000-0000-000000000001', 1);
 
-DECLARE @T1 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T2 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T3 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T4 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T5 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T6 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T7 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T8 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T9 UNIQUEIDENTIFIER = NEWID();
-DECLARE @T10 UNIQUEIDENTIFIER = NEWID();
+IF NOT EXISTS (SELECT 1 FROM UserRoles WHERE UserId = 'B0000000-0000-0000-0000-000000000002' AND RoleId = 2)
+    INSERT INTO UserRoles (UserId, RoleId) VALUES ('B0000000-0000-0000-0000-000000000002', 2);
 
-IF NOT EXISTS (SELECT 1 FROM dbo.Tickets WHERE ProjectId = @ProjectAlphaId AND TicketNumber = 1)
-INSERT INTO dbo.Tickets (
-    Id, ProjectId, TicketNumber, Title, Description,
-    IssueTypeId, StatusId, PriorityId,
-    ReporterUserId, AssigneeUserId, CreatedByUserId,
-    DueDate, StoryPoints, IsDeleted, CreatedAt, UpdatedAt)
-VALUES
-  (@T1,  @ProjectAlphaId, 1,
-   'Users cannot reset password via email link',
-   '## Steps to reproduce' + CHAR(10) + '1. Click Forgot Password on login page' + CHAR(10) + '2. Enter email and submit' + CHAR(10) + '3. Email is received with reset link' + CHAR(10) + '4. Click link — page shows "Token expired" immediately' + CHAR(10) + CHAR(10) + '## Expected behaviour' + CHAR(10) + 'User lands on password reset form and can set a new password.' + CHAR(10) + CHAR(10) + '## Actual behaviour' + CHAR(10) + '"Token expired" error appears even though link was just generated.',
-   @ItBug, @StatusInProg, @PrioCrit,
-   @Member2Id, @MemberId, @MemberId,
-   DATEADD(DAY, -1, GETUTCDATE()), 3, 0, DATEADD(DAY,-5,GETUTCDATE()), DATEADD(DAY,-1,GETUTCDATE())),
-
-  (@T2,  @ProjectAlphaId, 2,
-   'Dashboard chart does not render on Safari 17',
-   '## Environment' + CHAR(10) + '- Browser: Safari 17.2 on macOS Sonoma' + CHAR(10) + '- Reproduced by 3 users in the finance team' + CHAR(10) + CHAR(10) + '## Description' + CHAR(10) + 'The pie chart on the main dashboard is blank. Console shows `TypeError: ctx.roundRect is not a function`.' + CHAR(10) + CHAR(10) + '## Workaround' + CHAR(10) + 'Switch to Chrome or Firefox.',
-   @ItBug, @StatusNew, @PrioHigh,
-   @LeadId, NULL, @LeadId,
-   DATEADD(DAY, 3, GETUTCDATE()), 2, 0, DATEADD(DAY,-3,GETUTCDATE()), DATEADD(DAY,-3,GETUTCDATE())),
-
-  (@T3,  @ProjectAlphaId, 3,
-   'Add export to CSV on the ticket list page',
-   'Users have requested the ability to export filtered ticket lists to CSV for reporting in Excel.' + CHAR(10) + CHAR(10) + '## Acceptance criteria' + CHAR(10) + '- Export button visible when at least one ticket is in the list' + CHAR(10) + '- CSV includes: Key, Title, Status, Priority, Assignee, Due Date, Created' + CHAR(10) + '- Filename format: `ITS-export-YYYY-MM-DD.csv`' + CHAR(10) + '- All active filters are respected in the export',
-   @ItStory, @StatusOpen, @PrioMed,
-   @LeadId, @MemberId, @LeadId,
-   DATEADD(DAY, 14, GETUTCDATE()), 5, 0, DATEADD(DAY,-10,GETUTCDATE()), DATEADD(DAY,-2,GETUTCDATE())),
-
-  (@T4,  @ProjectAlphaId, 4,
-   'Performance: ticket list takes >4s to load with >500 tickets',
-   '## Profiling results' + CHAR(10) + 'SQL trace shows the list query is doing a full table scan on `Tickets`. The `ProjectId` column is not indexed (added after initial schema).' + CHAR(10) + CHAR(10) + '## Proposed fix' + CHAR(10) + 'Add index: `CREATE INDEX IX_Tickets_ProjectId_StatusId ON dbo.Tickets (ProjectId, StatusId) INCLUDE (Title, UpdatedAt)`',
-   @ItBug, @StatusReview, @PrioHigh,
-   @MemberId, @MemberId, @MemberId,
-   DATEADD(DAY, 7, GETUTCDATE()), 2, 0, DATEADD(DAY,-8,GETUTCDATE()), DATEADD(HOUR,-3,GETUTCDATE())),
-
-  (@T5,  @ProjectAlphaId, 5,
-   'Implement AI ticket summary on ticket detail page',
-   'Integrate the AI summarization endpoint into the ticket detail page. Show a collapsible "AI Summary" card in the right sidebar with a refresh button.',
-   @ItStory, @StatusDone, @PrioMed,
-   @LeadId, @Member2Id, @LeadId,
-   DATEADD(DAY, -7, GETUTCDATE()), 8, 0, DATEADD(DAY,-20,GETUTCDATE()), DATEADD(DAY,-2,GETUTCDATE())),
-
-  (@T6,  @ProjectAlphaId, 6,
-   'Set up CI/CD pipeline for automated deployment',
-   'Configure GitHub Actions (or equivalent) to: build the .NET API, run unit tests, build the React frontend, and deploy to staging on every push to `main`.',
-   @ItTask, @StatusInProg, @PrioHigh,
-   @AdminId, @Member2Id, @AdminId,
-   DATEADD(DAY, 5, GETUTCDATE()), 5, 0, DATEADD(DAY,-12,GETUTCDATE()), GETUTCDATE()),
-
-  (@T7,  @ProjectAlphaId, 7,
-   'Kanban drag-and-drop does not work on touchscreen devices',
-   '## Affected devices' + CHAR(10) + '- iPad Pro (Safari)' + CHAR(10) + '- Android tablet (Chrome)' + CHAR(10) + CHAR(10) + '## Behaviour' + CHAR(10) + 'Touch drag starts but card is dropped immediately without moving to a new column.' + CHAR(10) + CHAR(10) + '## Notes' + CHAR(10) + '@dnd-kit requires PointerSensor or TouchSensor. Currently only PointerSensor is configured with a 5px activation distance which may not fire correctly on touch.',
-   @ItBug, @StatusOpen, @PrioMed,
-   @MemberId, NULL, @MemberId,
-   DATEADD(DAY, 10, GETUTCDATE()), 3, 0, DATEADD(DAY,-6,GETUTCDATE()), DATEADD(DAY,-6,GETUTCDATE())),
-
-  (@T8,  @ProjectAlphaId, 8,
-   'Q3 Platform Reliability Epic',
-   'Parent epic for all reliability and performance work in Q3. Tracks: DB indexing, caching layer, load testing, and observability improvements.',
-   @ItEpic, @StatusOpen, @PrioHigh,
-   @LeadId, @LeadId, @LeadId,
-   DATEADD(DAY, 45, GETUTCDATE()), NULL, 0, DATEADD(DAY,-15,GETUTCDATE()), DATEADD(DAY,-15,GETUTCDATE())),
-
-  (@T9,  @ProjectAlphaId, 9,
-   'Add SLA breach indicator to ticket list view',
-   'Tickets that have breached their SLA should show a red clock icon in the ticket list. The due date cell already turns red for overdue tickets — extend this to include an SLA icon when `SlaBreachAt` is in the past.',
-   @ItStory, @StatusNew, @PrioLow,
-   @LeadId, NULL, @LeadId,
-   DATEADD(DAY, 21, GETUTCDATE()), 2, 0, DATEADD(DAY,-2,GETUTCDATE()), DATEADD(DAY,-2,GETUTCDATE())),
-
-  (@T10, @ProjectAlphaId, 10,
-   'Session expires without warning — users lose unsaved work',
-   'When the JWT token expires after 8 hours, the next API call fails silently and the user loses any form data they had not submitted.' + CHAR(10) + CHAR(10) + '## Proposed solution' + CHAR(10) + 'Show a banner 15 minutes before token expiry with a "Refresh session" button that re-authenticates.',
-   @ItBug, @StatusOpen, @PrioCrit,
-   @Member2Id, NULL, @Member2Id,
-   DATEADD(DAY, 2, GETUTCDATE()), NULL, 0, DATEADD(DAY,-1,GETUTCDATE()), DATEADD(DAY,-1,GETUTCDATE()));
+IF NOT EXISTS (SELECT 1 FROM UserRoles WHERE UserId = 'C0000000-0000-0000-0000-000000000003' AND RoleId = 3)
+    INSERT INTO UserRoles (UserId, RoleId) VALUES ('C0000000-0000-0000-0000-000000000003', 3);
 
 -- ──────────────────────────────────────────────────────────────
--- 6. Sample Comments
+-- 3. DEMO PROJECTS
 -- ──────────────────────────────────────────────────────────────
-IF NOT EXISTS (SELECT 1 FROM dbo.Comments WHERE TicketId = @T1)
-INSERT INTO dbo.Comments (Id, TicketId, AuthorUserId, Body, BodyHtml, IsDeleted, CreatedAt, UpdatedAt)
-VALUES
-  (NEWID(), @T1, @MemberId,
-   'Reproduced locally. The token expiry is set to 1 minute in the dev config instead of 24 hours. Fixing the config value should resolve this.',
-   '<p>Reproduced locally. The token expiry is set to 1 minute in the dev config instead of 24 hours. Fixing the config value should resolve this.</p>',
-   0, DATEADD(HOUR,-4,GETUTCDATE()), DATEADD(HOUR,-4,GETUTCDATE())),
 
-  (NEWID(), @T1, @LeadId,
-   'Good catch. Also make sure the production environment variable `Email__TokenExpiryMinutes` is set correctly before deploying the fix.',
-   '<p>Good catch. Also make sure the production environment variable <code>Email__TokenExpiryMinutes</code> is set correctly before deploying the fix.</p>',
-   0, DATEADD(HOUR,-2,GETUTCDATE()), DATEADD(HOUR,-2,GETUTCDATE())),
+IF NOT EXISTS (SELECT 1 FROM Projects WHERE ProjectKey = 'ALPHA')
+BEGIN
+    INSERT INTO Projects (
+        Id, ProjectKey, Name, Description,
+        LeadUserId, IsArchived, IsDeleted,
+        TicketCounter, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA',
+        'Alpha - Core Platform',
+        'Main software delivery project for the core platform team. Covers backend APIs, frontend UI, and infrastructure work.',
+        'B0000000-0000-0000-0000-000000000002',
+        0, 0,
+        15,
+        DATEADD(MONTH, -3, GETUTCDATE()), GETUTCDATE(),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
 
-  (NEWID(), @T4, @Member2Id,
-   'Index added in migration `20260620_AddTicketProjectIndex`. Query time dropped from 4.2s to 180ms on the staging database (500k rows).',
-   '<p>Index added in migration <code>20260620_AddTicketProjectIndex</code>. Query time dropped from 4.2s to 180ms on the staging database (500k rows).</p>',
-   0, DATEADD(HOUR,-3,GETUTCDATE()), DATEADD(HOUR,-3,GETUTCDATE()));
-
--- ──────────────────────────────────────────────────────────────
--- 7. BETA project tickets (3 tickets for variety)
--- ──────────────────────────────────────────────────────────────
-UPDATE dbo.ProjectSequences SET LastTicketNumber = 3 WHERE ProjectId = @ProjectBetaId;
-
-IF NOT EXISTS (SELECT 1 FROM dbo.Tickets WHERE ProjectId = @ProjectBetaId AND TicketNumber = 1)
-INSERT INTO dbo.Tickets (
-    Id, ProjectId, TicketNumber, Title, Description,
-    IssueTypeId, StatusId, PriorityId,
-    ReporterUserId, AssigneeUserId, CreatedByUserId,
-    DueDate, StoryPoints, IsDeleted, CreatedAt, UpdatedAt)
-VALUES
-  (NEWID(), @ProjectBetaId, 1,
-   'Upgrade SQL Server from 2019 to 2022',
-   'Plan and execute in-place upgrade of the production SQL Server instance. Includes: pre-upgrade checklist, maintenance window scheduling, post-upgrade verification.',
-   @ItTask, @StatusOpen, @PrioMed,
-   @AdminId, @AdminId, @AdminId,
-   DATEADD(DAY, 30, GETUTCDATE()), 8, 0, DATEADD(DAY,-7,GETUTCDATE()), DATEADD(DAY,-7,GETUTCDATE())),
-
-  (NEWID(), @ProjectBetaId, 2,
-   'Set up centralised log aggregation (ELK or Seq)',
-   'ITS API logs to rolling files. We need a centralised log viewer accessible to the ops team. Evaluate Seq (lightweight, .NET-native) vs ELK (more powerful).',
-   @ItStory, @StatusNew, @PrioLow,
-   @AdminId, NULL, @AdminId,
-   DATEADD(DAY, 60, GETUTCDATE()), 13, 0, DATEADD(DAY,-3,GETUTCDATE()), DATEADD(DAY,-3,GETUTCDATE())),
-
-  (NEWID(), @ProjectBetaId, 3,
-   'Document disaster recovery runbook for ITS',
-   'Create a step-by-step DR runbook covering: database restore from backup, API redeployment, DNS failover, and smoke test checklist.',
-   @ItTask, @StatusInProg, @PrioHigh,
-   @AdminId, @AdminId, @AdminId,
-   DATEADD(DAY, 14, GETUTCDATE()), 5, 0, DATEADD(DAY,-5,GETUTCDATE()), DATEADD(DAY,-1,GETUTCDATE()));
+IF NOT EXISTS (SELECT 1 FROM Projects WHERE ProjectKey = 'BETA')
+BEGIN
+    INSERT INTO Projects (
+        Id, ProjectKey, Name, Description,
+        LeadUserId, IsArchived, IsDeleted,
+        TicketCounter, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'D0000000-0000-0000-0000-000000000002',
+        'BETA',
+        'Beta - IT Operations',
+        'IT Operations project tracking infrastructure requests, incidents, and maintenance tasks.',
+        'A0000000-0000-0000-0000-000000000001',
+        0, 0,
+        6,
+        DATEADD(MONTH, -2, GETUTCDATE()), GETUTCDATE(),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
 
 -- ──────────────────────────────────────────────────────────────
--- 8. Verify output
+-- 4. PROJECT MEMBERS
 -- ──────────────────────────────────────────────────────────────
+
+-- ALPHA project members
+IF NOT EXISTS (SELECT 1 FROM ProjectMembers WHERE ProjectId = 'D0000000-0000-0000-0000-000000000001' AND UserId = 'B0000000-0000-0000-0000-000000000002')
+    INSERT INTO ProjectMembers (ProjectId, UserId, RoleId, JoinedAt)
+    VALUES ('D0000000-0000-0000-0000-000000000001', 'B0000000-0000-0000-0000-000000000002', 2, GETUTCDATE());
+
+IF NOT EXISTS (SELECT 1 FROM ProjectMembers WHERE ProjectId = 'D0000000-0000-0000-0000-000000000001' AND UserId = 'C0000000-0000-0000-0000-000000000003')
+    INSERT INTO ProjectMembers (ProjectId, UserId, RoleId, JoinedAt)
+    VALUES ('D0000000-0000-0000-0000-000000000001', 'C0000000-0000-0000-0000-000000000003', 3, GETUTCDATE());
+
+IF NOT EXISTS (SELECT 1 FROM ProjectMembers WHERE ProjectId = 'D0000000-0000-0000-0000-000000000001' AND UserId = 'A0000000-0000-0000-0000-000000000001')
+    INSERT INTO ProjectMembers (ProjectId, UserId, RoleId, JoinedAt)
+    VALUES ('D0000000-0000-0000-0000-000000000001', 'A0000000-0000-0000-0000-000000000001', 1, GETUTCDATE());
+
+-- BETA project members
+IF NOT EXISTS (SELECT 1 FROM ProjectMembers WHERE ProjectId = 'D0000000-0000-0000-0000-000000000002' AND UserId = 'A0000000-0000-0000-0000-000000000001')
+    INSERT INTO ProjectMembers (ProjectId, UserId, RoleId, JoinedAt)
+    VALUES ('D0000000-0000-0000-0000-000000000002', 'A0000000-0000-0000-0000-000000000001', 2, GETUTCDATE());
+
+IF NOT EXISTS (SELECT 1 FROM ProjectMembers WHERE ProjectId = 'D0000000-0000-0000-0000-000000000002' AND UserId = 'C0000000-0000-0000-0000-000000000003')
+    INSERT INTO ProjectMembers (ProjectId, UserId, RoleId, JoinedAt)
+    VALUES ('D0000000-0000-0000-0000-000000000002', 'C0000000-0000-0000-0000-000000000003', 3, GETUTCDATE());
+
+-- ──────────────────────────────────────────────────────────────
+-- 5. SAMPLE TICKETS -- ALPHA PROJECT
+--    IssueTypeId: 1=Bug, 2=Story, 3=Task, 4=Epic
+--    PriorityId:  1=Critical, 2=High, 3=Medium, 4=Low
+--    StatusId:    1=Backlog, 2=ToDo, 3=InProgress, 4=InReview, 5=Done, 6=Cancelled
+-- ──────────────────────────────────────────────────────────────
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-1')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000001',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-1',
+        'Login page throws 500 error when password contains special characters',
+        'Steps to reproduce: navigate to /login, enter a password with & or < characters. Expected: successful login. Actual: HTTP 500 — XML parsing exception in the LDAP bind request.',
+        1, 1, 3,
+        'B0000000-0000-0000-0000-000000000002',
+        'C0000000-0000-0000-0000-000000000003',
+        DATEADD(DAY, -2, GETUTCDATE()), 3, 4.0,
+        0,
+        DATEADD(DAY, -10, GETUTCDATE()),
+        DATEADD(DAY, -3, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-2')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000002',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-2',
+        'Implement Kanban board drag-and-drop for status transitions',
+        'Add drag-and-drop support to the Kanban board. Cards should be draggable between status columns. Guarded transitions (those requiring a comment or resolution) must prompt a dialog before confirming. WIP limit violations should highlight the column header in red.',
+        2, 2, 4,
+        'B0000000-0000-0000-0000-000000000002',
+        'C0000000-0000-0000-0000-000000000003',
+        DATEADD(DAY, 5, GETUTCDATE()), 8, 12.0,
+        0,
+        DATEADD(DAY, -14, GETUTCDATE()),
+        DATEADD(DAY, -1, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-3')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000003',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-3',
+        'Add AI ticket summarisation feature',
+        'Integrate with OpenAI GPT-4o-mini to generate structured summaries of tickets including executive summary, blockers, and action items. Summaries should be cached for 1 hour to reduce API costs.',
+        2, 2, 5,
+        'A0000000-0000-0000-0000-000000000001',
+        'B0000000-0000-0000-0000-000000000002',
+        DATEADD(DAY, -5, GETUTCDATE()), 5, 8.0,
+        0,
+        DATEADD(DAY, -21, GETUTCDATE()),
+        DATEADD(DAY, -5, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-4')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000004',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-4',
+        'Notifications bell badge not updating in real time',
+        'The notification badge in the top navigation only updates on page refresh. Expected: count updates dynamically as new notifications arrive without requiring a full reload.',
+        1, 3, 2,
+        'C0000000-0000-0000-0000-000000000003',
+        NULL,
+        NULL, 2, 3.0,
+        0,
+        DATEADD(DAY, -7, GETUTCDATE()),
+        DATEADD(DAY, -7, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-5')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000005',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-5',
+        'Export ticket list to CSV',
+        'Users need to export the current filtered ticket list to a CSV file for reporting. The export should include all visible columns: key, title, status, priority, assignee, due date.',
+        2, 3, 1,
+        'B0000000-0000-0000-0000-000000000002',
+        NULL,
+        NULL, 3, 6.0,
+        0,
+        DATEADD(DAY, -3, GETUTCDATE()),
+        DATEADD(DAY, -3, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-6')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000006',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-6',
+        'Attachment upload hangs on files larger than 10 MB',
+        'When uploading files between 10 MB and 25 MB, the progress bar reaches 100% but the UI freezes and never confirms success. Files under 10 MB work correctly.',
+        1, 2, 3,
+        'C0000000-0000-0000-0000-000000000003',
+        'C0000000-0000-0000-0000-000000000003',
+        DATEADD(DAY, 3, GETUTCDATE()), 2, 3.0,
+        0,
+        DATEADD(DAY, -5, GETUTCDATE()),
+        DATEADD(DAY, -2, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-7')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000007',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-7',
+        'Implement optimistic concurrency using ETag / If-Match headers',
+        'Add row-version based optimistic concurrency control to ticket and project mutation endpoints to prevent lost updates when multiple users edit the same resource simultaneously.',
+        3, 2, 5,
+        'A0000000-0000-0000-0000-000000000001',
+        'B0000000-0000-0000-0000-000000000002',
+        DATEADD(DAY, -10, GETUTCDATE()), 5, 8.0,
+        0,
+        DATEADD(DAY, -30, GETUTCDATE()),
+        DATEADD(DAY, -10, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-8')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000008',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-8',
+        'Dashboard shows incorrect overdue ticket count',
+        'The Overdue count on the dashboard includes tickets in Done and Cancelled status. It should only count open tickets that are past their due date.',
+        1, 3, 5,
+        'C0000000-0000-0000-0000-000000000003',
+        'B0000000-0000-0000-0000-000000000002',
+        NULL, 1, 1.0,
+        0,
+        DATEADD(DAY, -15, GETUTCDATE()),
+        DATEADD(DAY, -8, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-9')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000009',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-9',
+        'Add natural language ticket search using AI',
+        'Allow users to search tickets using plain English queries such as "show me all critical bugs assigned to Alice from last month". The AI translates the query into structured API filter parameters.',
+        2, 2, 3,
+        'B0000000-0000-0000-0000-000000000002',
+        'B0000000-0000-0000-0000-000000000002',
+        DATEADD(DAY, 7, GETUTCDATE()), 8, 10.0,
+        0,
+        DATEADD(DAY, -12, GETUTCDATE()),
+        DATEADD(DAY, -1, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'ALPHA-10')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0001-000000000010',
+        'D0000000-0000-0000-0000-000000000001',
+        'ALPHA-10',
+        'Write deployment guide and release documentation for v1.0.0',
+        'Create comprehensive deployment guide, admin guide, user guide, API documentation, release notes, and demo seed script for the 1.0.0 release.',
+        3, 3, 4,
+        'A0000000-0000-0000-0000-000000000001',
+        'A0000000-0000-0000-0000-000000000001',
+        GETUTCDATE(), 5, 8.0,
+        0,
+        DATEADD(DAY, -2, GETUTCDATE()),
+        GETUTCDATE(),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+-- ──────────────────────────────────────────────────────────────
+-- 6. SAMPLE TICKETS -- BETA PROJECT
+-- ──────────────────────────────────────────────────────────────
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'BETA-1')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0002-000000000001',
+        'D0000000-0000-0000-0000-000000000002',
+        'BETA-1',
+        'Set up production SQL Server with Always On availability group',
+        'Configure SQL Server 2022 Always On AG with primary and secondary replicas for the ITS production database. Includes automated failover and read-only secondary routing.',
+        3, 1, 3,
+        'A0000000-0000-0000-0000-000000000001',
+        'A0000000-0000-0000-0000-000000000001',
+        DATEADD(DAY, 2, GETUTCDATE()), NULL, 16.0,
+        0,
+        DATEADD(DAY, -8, GETUTCDATE()),
+        DATEADD(DAY, -1, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'BETA-2')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0002-000000000002',
+        'D0000000-0000-0000-0000-000000000002',
+        'BETA-2',
+        'Configure nginx reverse proxy with SSL termination',
+        'Install and configure nginx on the production host with SSL certificates from the internal CA. Set up HTTP-to-HTTPS redirect, HSTS headers, and proxy rules for the API and frontend containers.',
+        3, 2, 5,
+        'A0000000-0000-0000-0000-000000000001',
+        'C0000000-0000-0000-0000-000000000003',
+        DATEADD(DAY, -3, GETUTCDATE()), NULL, 4.0,
+        0,
+        DATEADD(DAY, -14, GETUTCDATE()),
+        DATEADD(DAY, -3, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'BETA-3')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0002-000000000003',
+        'D0000000-0000-0000-0000-000000000002',
+        'BETA-3',
+        'Schedule automated daily database backups',
+        'Configure a cron job on the production server to perform a daily SQL Server backup and copy the backup file to network-attached storage. Retention: 30 days.',
+        3, 2, 2,
+        'A0000000-0000-0000-0000-000000000001',
+        NULL,
+        DATEADD(DAY, 10, GETUTCDATE()), NULL, 3.0,
+        0,
+        DATEADD(DAY, -4, GETUTCDATE()),
+        DATEADD(DAY, -4, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'BETA-4')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0002-000000000004',
+        'D0000000-0000-0000-0000-000000000002',
+        'BETA-4',
+        'Create IT service account for LDAP bind',
+        'Provision a dedicated service account in Active Directory for ITS LDAP authentication. Account requires read-only access to the Users OU. Password rotation policy: 365 days.',
+        3, 3, 5,
+        'C0000000-0000-0000-0000-000000000003',
+        'A0000000-0000-0000-0000-000000000001',
+        NULL, NULL, 1.0,
+        0,
+        DATEADD(DAY, -20, GETUTCDATE()),
+        DATEADD(DAY, -15, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Tickets WHERE TicketKey = 'BETA-5')
+BEGIN
+    INSERT INTO Tickets (
+        Id, ProjectId, TicketKey, Title, Description,
+        IssueTypeId, PriorityId, StatusId,
+        ReporterUserId, AssigneeUserId,
+        DueDate, StoryPoints, EstimatedHours,
+        IsDeleted, CreatedAt, UpdatedAt, RowVersion
+    ) VALUES (
+        'E0000000-0000-0000-0002-000000000005',
+        'D0000000-0000-0000-0000-000000000002',
+        'BETA-5',
+        'Server disk usage alert at 80% — expand attachment volume',
+        'The production server disk is at 80% capacity primarily due to attachment storage growth. Expand the Docker volume or migrate attachments to object storage.',
+        1, 2, 1,
+        'A0000000-0000-0000-0000-000000000001',
+        NULL,
+        DATEADD(DAY, 14, GETUTCDATE()), NULL, 2.0,
+        0,
+        DATEADD(DAY, -1, GETUTCDATE()),
+        DATEADD(DAY, -1, GETUTCDATE()),
+        CAST(NEWID() AS BINARY(8))
+    );
+END
+
+-- ──────────────────────────────────────────────────────────────
+-- 7. SAMPLE COMMENTS
+-- ──────────────────────────────────────────────────────────────
+
+IF NOT EXISTS (SELECT 1 FROM Comments WHERE TicketId = 'E0000000-0000-0000-0001-000000000001' AND AuthorUserId = 'B0000000-0000-0000-0000-000000000002')
+BEGIN
+    INSERT INTO Comments (Id, TicketId, AuthorUserId, ParentCommentId, Body, IsDeleted, CreatedAt, UpdatedAt)
+    VALUES (
+        'F0000000-0000-0000-0001-000000000001',
+        'E0000000-0000-0000-0001-000000000001',
+        'B0000000-0000-0000-0000-000000000002',
+        NULL,
+        'Confirmed reproducible. The LDAP ADsOpenObject call does not encode the password correctly when it contains XML special characters. Assigning to Demo Member to fix the encoding in the LDAP authentication service.',
+        0,
+        DATEADD(DAY, -9, GETUTCDATE()),
+        DATEADD(DAY, -9, GETUTCDATE())
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Comments WHERE TicketId = 'E0000000-0000-0000-0001-000000000001' AND AuthorUserId = 'C0000000-0000-0000-0000-000000000003')
+BEGIN
+    INSERT INTO Comments (Id, TicketId, AuthorUserId, ParentCommentId, Body, IsDeleted, CreatedAt, UpdatedAt)
+    VALUES (
+        'F0000000-0000-0000-0001-000000000002',
+        'E0000000-0000-0000-0001-000000000001',
+        'C0000000-0000-0000-0000-000000000003',
+        'F0000000-0000-0000-0001-000000000001',
+        'Fix in progress. The password must be passed as raw bytes to the LDAP library rather than as a string — XML encoding should not be applied here. ETA: end of day.',
+        0,
+        DATEADD(DAY, -8, GETUTCDATE()),
+        DATEADD(DAY, -8, GETUTCDATE())
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Comments WHERE TicketId = 'E0000000-0000-0000-0001-000000000002' AND AuthorUserId = 'C0000000-0000-0000-0000-000000000003')
+BEGIN
+    INSERT INTO Comments (Id, TicketId, AuthorUserId, ParentCommentId, Body, IsDeleted, CreatedAt, UpdatedAt)
+    VALUES (
+        'F0000000-0000-0000-0002-000000000001',
+        'E0000000-0000-0000-0001-000000000002',
+        'C0000000-0000-0000-0000-000000000003',
+        NULL,
+        'Drag-and-drop prototype is working locally using @hello-pangea/dnd. Drop targets highlight correctly and the transition dialog fires for guarded transitions. Moving to In Review — please test on Safari.',
+        0,
+        DATEADD(DAY, -1, GETUTCDATE()),
+        DATEADD(DAY, -1, GETUTCDATE())
+    );
+END
+
+IF NOT EXISTS (SELECT 1 FROM Comments WHERE TicketId = 'E0000000-0000-0000-0002-000000000001' AND AuthorUserId = 'A0000000-0000-0000-0000-000000000001')
+BEGIN
+    INSERT INTO Comments (Id, TicketId, AuthorUserId, ParentCommentId, Body, IsDeleted, CreatedAt, UpdatedAt)
+    VALUES (
+        'F0000000-0000-0000-0003-000000000001',
+        'E0000000-0000-0000-0002-000000000001',
+        'A0000000-0000-0000-0000-000000000001',
+        NULL,
+        'Primary replica is online and synchronising. Secondary replica has joined the AG and health checks are passing. Completing final failover test today before marking done.',
+        0,
+        DATEADD(HOUR, -6, GETUTCDATE()),
+        DATEADD(HOUR, -6, GETUTCDATE())
+    );
+END
+
+-- ──────────────────────────────────────────────────────────────
+-- 8. VERIFY SEED
+-- ──────────────────────────────────────────────────────────────
+
 SELECT
-    'Users'    AS [Table], COUNT(*) AS [Seeded] FROM dbo.Users    WHERE Id IN (@AdminId, @LeadId, @MemberId, @Member2Id)
-UNION ALL SELECT 'Projects', COUNT(*) FROM dbo.Projects WHERE Id IN (@ProjectAlphaId, @ProjectBetaId)
-UNION ALL SELECT 'Tickets (ALPHA)', COUNT(*) FROM dbo.Tickets WHERE ProjectId = @ProjectAlphaId
-UNION ALL SELECT 'Tickets (BETA)',  COUNT(*) FROM dbo.Tickets WHERE ProjectId = @ProjectBetaId
-UNION ALL SELECT 'Comments', COUNT(*) FROM dbo.Comments;
+    'Users'           AS [Table], COUNT(*) AS [DemoRows] FROM Users    WHERE Upn LIKE '%@demo.its'
+UNION ALL
+SELECT 'Projects',                COUNT(*) FROM Projects  WHERE ProjectKey IN ('ALPHA', 'BETA')
+UNION ALL
+SELECT 'Tickets (ALPHA)',         COUNT(*) FROM Tickets   WHERE ProjectId = 'D0000000-0000-0000-0000-000000000001'
+UNION ALL
+SELECT 'Tickets (BETA)',          COUNT(*) FROM Tickets   WHERE ProjectId = 'D0000000-0000-0000-0000-000000000002'
+UNION ALL
+SELECT 'Comments',                COUNT(*) FROM Comments  WHERE TicketId IN (
+    SELECT Id FROM Tickets WHERE ProjectId IN (
+        'D0000000-0000-0000-0000-000000000001',
+        'D0000000-0000-0000-0000-000000000002'
+    )
+);
 
 COMMIT TRANSACTION;
-PRINT 'Demo data seeded successfully.';
+
+PRINT 'Demo data seed completed successfully.';

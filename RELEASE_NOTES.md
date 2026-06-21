@@ -1,149 +1,186 @@
-# ITS — Internal Issue Tracking System
-# Release Notes — Version 1.0.0
+# Release Notes — ITS v1.0.0
 
-**Release Date:** 2026-06-21  
-**Type:** General Availability (GA)
+**Release Date:** 2026-06-21
+**Release Type:** General Availability (GA)
 
 ---
 
 ## Summary
 
-ITS 1.0.0 is the first production release of the Internal Issue Tracking System — an enterprise-grade ticket tracking platform built for internal teams. It provides project-scoped ticket management, configurable workflow automation, Kanban boards, AI-assisted features, and deep Active Directory integration, suitable for replacing external tools such as Jira within an on-premises or private-cloud environment.
+ITS (Internal Ticketing System) version 1.0.0 is the first general availability release of the enterprise-grade internal issue tracking platform built for corporate environments with Active Directory authentication. ITS provides end-to-end ticket lifecycle management, Kanban-based project boards, team collaboration features, AI-powered productivity tools, and comprehensive administrative controls — all deployable on-premises with zero external dependencies beyond the optional AI provider.
 
 ---
 
-## Key Features
+## What's New in 1.0.0
 
-### Core Ticket Management
-- Create, view, edit, and delete tickets with rich metadata: title, description (Markdown), issue type, priority, status, assignee, reporter, due date, story points, and estimated hours
-- Ticket key system (e.g. `ALPHA-42`) for easy reference
-- Optimistic concurrency via `ETag`/`If-Match` headers — prevents silent overwrites in multi-user environments
-- File attachments (JPEG, PNG, PDF, Word, Excel, ZIP, MP4 supported; 25 MB limit)
-- Labels, watchers, ticket links (blocks/blocked-by, relates-to, duplicates)
-- Custom fields per project (text, number, date, list)
-- Soft-delete with full audit trail
+### Core Ticket Tracking
 
-### Projects & Workflows
-- Multi-project with project keys
-- Role-based project membership (System Administrator, Project Lead, Member)
-- Configurable workflow engine: statuses, allowed transitions, transition guards, required comments on specific transitions
-- Per-project workflow templates
-- WIP limits per Kanban column
-- SLA breach tracking with `SlaBreachAt` timestamps
+- **Full ticket lifecycle management** — create, assign, transition, and resolve tickets with configurable workflow states and transitions
+- **Sequential ticket keys** per project (e.g. `ALPHA-42`) for unambiguous cross-team references
+- **Issue types** — Bug, Story, Task, Epic with per-project configuration
+- **Priority levels** — Critical, High, Medium, Low with visual indicators throughout the UI
+- **Story points and time estimates** for capacity planning
+- **Due dates** with overdue detection across dashboard, list view, and Kanban board
+- **Labels** for cross-cutting tagging and filtering
+- **Soft-delete** preserves tickets for audit compliance
+
+### Projects and Workflows
+
+- **Multi-project support** with isolated ticket namespaces and project keys
+- **Configurable workflows** — define custom statuses, allowed transitions, and transition guards (require comment, require resolution, role restriction)
+- **WIP limits** per Kanban column with visual overflow indicators
+- **Project archiving** preserves history while hiding from active views
+- **Department association** for organisational reporting
 
 ### Kanban Board
-- Drag-and-drop card movement between status columns via `@dnd-kit`
-- Real-time WIP limit enforcement (visual warning on exceeded limits)
-- Full filter support: assignee, priority, label, epic, issue type, free-text search
-- Drag overlay for smooth UX
+
+- **Drag-and-drop** status transitions with guard enforcement dialogs
+- **Column grouping** by workflow status category (Todo / In Progress / Done)
+- **Real-time board filters** — by assignee, priority, label, issue type, epic, and text search
+- **Card details** — shows priority badge, assignee avatar, due date, story points, and comment count inline
 
 ### Collaboration
-- Threaded comments with Markdown rendering
-- Comment edit history
-- @mention support (parsed and stored)
-- Per-user notification preferences
-- In-app notification panel (mark individual / mark all as read)
-- Email notification queue (background delivery)
+
+- **Threaded comments** with Markdown rendering and inline editing
+- **Watcher subscriptions** — users can watch any ticket and receive notifications for all changes
+- **Attachment support** — up to 25 MB per file; images, PDFs, Office documents, ZIP, and MP4 supported
+- **Mention notifications** — `@username` in comments triggers direct notifications
+- **Notification bell** with unread badge count
 
 ### AI Features
-- **AI Summary**: Automatic ticket summarization (key facts, reproduction steps, impact)
-- **Similar Tickets**: Semantic similarity search to surface related/duplicate tickets
-- **Natural Language Search**: Query tickets using plain English
-- **Ticket Drafter**: Generate a well-structured ticket from a brief description
-- **Meeting Parser**: Extract action items and tickets from meeting notes
-- **Executive Report Generator**: Produce stakeholder-ready project summaries
-- All AI operations are rate-limited, cached, data-masked, and audited
-- Pluggable provider: OpenAI, Azure OpenAI, or built-in Mock (for dev/testing)
 
-### Authentication & Security
-- Active Directory (LDAP) authentication — no local password store
-- JWT Bearer tokens (configurable expiry, default 8 hours)
-- Automatic user provisioning and role sync from AD group memberships
-- Role-based access control with three roles: System Administrator, Project Lead, Member
-- Project-scoped authorization checks on every operation
-- Security response headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy`, `Strict-Transport-Security`
+- **Ticket Summariser** — generates executive summary, open blockers, and action items for any ticket
+- **AI Comment Generator** — drafts comments from an instruction and tone preference (Professional, Casual, Technical); never auto-posts
+- **Natural Language Search** — translates plain-English queries into structured ticket filters
+- **Duplicate Detector** — checks for similar existing tickets before you create a new one
+- **Similar Tickets** — surfaces semantically related tickets when viewing any ticket
+- **Ticket Drafter** — converts free text (emails, notes) into a structured ticket draft
+- **Meeting Note Parser** — extracts action items, decisions, risks, and dependencies from meeting notes
+- **AI Executive Report** — weekly/monthly/quarterly narrative report with trend analysis
+- **Sprint Intelligence** — identifies at-risk tickets, workload imbalances, and SLA warnings
+- **Knowledge Assistant** — Q&A over your ticket data using natural language
 
-### Administration & Observability
-- Structured logging with Serilog (console + rolling file, configurable minimum level)
-- HTTP request logging with user ID enrichment
-- Health check endpoint at `GET /health` (JSON, anonymous)
-- SQL Server connectivity health check
-- Audit log on every state-changing operation
-- Background jobs: AD sync, email dispatch, attachment purge
-- Global exception handler returning RFC 7807 `ProblemDetails`
+### Administration and Security
+
+- **Active Directory / LDAP authentication** — users log in with corporate credentials; no separate password management
+- **Automatic AD sync** — user profiles sync hourly from LDAP
+- **Role-based access control** — System Administrator, Project Lead, Member with fine-grained project-level permissions
+- **JWT authentication** — 8-hour token expiry; stateless, no session storage required
+- **Optimistic concurrency** — ETag / If-Match headers prevent lost updates on concurrent edits
+- **Audit logging** — every ticket mutation, status change, and member action is recorded with actor, timestamp, and before/after values
+- **Health check endpoint** at `/health` for monitoring integration
+- **Serilog structured logging** with daily rolling files and console output
+
+### Dashboard and Reporting
+
+- **Personal dashboard** showing assigned tickets, watched tickets, overdue items, and project summaries
+- **AI Executive Report** for leadership visibility across projects and departments
+- **Activity timeline** per ticket showing the complete change history
 
 ---
 
 ## Technical Highlights
 
-| Concern | Technology |
-|---|---|
-| Architecture | Clean Architecture (Domain / Application / Infrastructure / Api) |
-| Backend | ASP.NET Core 9, C# 13, MediatR (CQRS), FluentValidation |
-| ORM / Database | EF Core 9, SQL Server 2019+ |
-| Frontend | React 19, TypeScript 6, Vite 8, MUI v9 |
-| State / Fetching | Zustand, TanStack Query v5 |
-| Charts | Recharts |
-| Drag-and-drop | @dnd-kit |
-| Auth | JWT + Active Directory LDAP |
-| Logging | Serilog |
-| Testing | xUnit, Moq, FluentAssertions, FluentValidation.TestHelper |
-
----
-
-## Performance Notes
-
-- All list queries use `AsNoTracking()` and project to DTOs — no tracked entity materialisation
-- Reference data (users, priorities, statuses) is batch-loaded in parallel (`Task.WhenAll`) to avoid N+1 patterns
-- Kanban board and Dashboard handlers use `GroupBy`/`CountAsync` aggregations pushed to SQL
-- EF Core connection resiliency: up to 5 retries with 30-second delay
-- MUI component tree optimised with `React.memo` on frequently-rendered cards
+| Layer | Technology |
+|-------|-----------|
+| Backend framework | ASP.NET Core 9 |
+| Architecture | Clean Architecture — Domain / Application / Infrastructure / API |
+| ORM | Entity Framework Core 9 with SQL Server provider |
+| CQRS / Mediator | MediatR |
+| Logging | Serilog (structured, rolling file + console) |
+| Authentication | JWT Bearer, LDAP/AD via Novell.Directory.Ldap |
+| Background jobs | IHostedService (AD sync, email queue, attachment purge) |
+| Database | SQL Server 2019 / 2022 |
+| Frontend framework | React 19 with TypeScript |
+| UI component library | Material UI (MUI) v9 |
+| State management | Zustand (auth/UI state), TanStack Query v5 (server state) |
+| Build tool | Vite |
+| Containerisation | Docker Compose (multi-stage builds) |
+| AI providers | OpenAI, Azure OpenAI, Mock (configurable) |
 
 ---
 
 ## Known Limitations
 
-| Limitation | Notes |
-|---|---|
-| No JWT refresh endpoint | Tokens are valid for the configured `ExpiryHours` (default 8 h). Users must log in again when expired. A refresh endpoint is planned for v1.1. |
-| No SSO / SAML / OAuth | Authentication is LDAP-only. SAML 2.0 federation is planned for v1.2. |
-| No mobile application | The responsive web frontend is accessible on mobile browsers but there is no native iOS/Android app. |
-| Empty EF migrations folder | The database schema is applied via `Database.MigrateAsync()` in Development and must be managed via explicit migration scripts in Production. See the Deployment Guide. |
-| Integration tests empty | The integration test project scaffold exists but has no test implementations in v1.0. |
-| File storage is local disk | Attachments are stored on the API host's filesystem. S3/Azure Blob storage adapters are planned for v1.1. |
+The following limitations are known in this release and are targeted for resolution in future versions:
+
+- **No JWT refresh endpoint.** Tokens are valid for 8 hours. After expiry, users must log in again. Silent token refresh is planned for v1.1.
+- **No SSO / SAML support.** Authentication is exclusively via LDAP / Active Directory username and password. SAML 2.0 and OIDC integration are on the roadmap.
+- **No mobile application.** The web UI is responsive on mobile browsers, but there is no dedicated iOS or Android application.
+- **No real-time WebSocket push.** Notifications and board updates require polling or manual refresh. WebSocket support is planned for v1.2.
+- **AI features require internet access** when using the OpenAI or Azure OpenAI providers. Air-gapped deployments must use `Ai__Provider=Mock` or self-host a compatible model endpoint.
+- **Single-node deployment.** The Docker Compose configuration does not support horizontal scaling of the API. Multi-instance deployment is planned for v2.0.
+- **No built-in SMTP authentication UI.** SMTP credentials must be configured via environment variables.
 
 ---
 
 ## System Requirements
 
-**API Server**
-- OS: Windows Server 2022 or Ubuntu 22.04+
-- Runtime: .NET 9 ASP.NET Core hosting bundle
-- RAM: 2 GB minimum, 4 GB recommended
-- Disk: 20 GB for application + attachment storage
+### Production Deployment (Docker Compose)
 
-**Database Server**
-- SQL Server 2019 (or 2022) Standard or Enterprise edition
-- RAM: 4 GB minimum
-- Disk: sized to data volume
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| CPU | 2 cores | 4 cores |
+| RAM | 4 GB | 8 GB |
+| Disk | 20 GB | 100 GB |
+| Docker Engine | 24.0 | latest |
+| OS | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS |
 
-**Frontend** (static files served by nginx or IIS)
-- Built with Vite; output is pure HTML/CSS/JS
-- No server-side rendering required
+### Client Browsers
+
+| Browser | Minimum Version |
+|---------|----------------|
+| Chrome | 120 |
+| Edge | 120 |
+| Firefox | 121 |
+| Safari | 17 |
+
+### External Dependencies
+
+| Service | Required | Notes |
+|---------|----------|-------|
+| SQL Server | Yes | 2019 or 2022; provided via Docker or external instance |
+| Active Directory / LDAP | Yes | Any RFC 4511-compliant LDAP server |
+| SMTP relay | No | Required only for email notifications |
+| OpenAI or Azure OpenAI | No | Required only for AI features |
 
 ---
 
-## Upgrade Path
+## Quick Start
 
-This is the initial release. No upgrade path applies.
+```bash
+# 1. Clone the repository
+git clone https://github.com/your-org/Ticketing-systemInternal.git /opt/its
+cd /opt/its
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your values
+
+# 3. Start the stack
+docker compose up -d --build
+
+# 4. Apply database migrations
+dotnet ef database update \
+  --project src/ITS.Infrastructure \
+  --startup-project src/ITS.Api
+
+# 5. Verify
+curl http://localhost:5000/health
+```
+
+See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for the complete deployment guide.
 
 ---
 
-## Contributors
+## Documentation
 
-Built by the Internal Engineering Platform team.
-
----
-
-*For deployment instructions see [`docs/deployment.md`](docs/deployment.md).*  
-*For API reference see [`docs/api.md`](docs/api.md).*
+| Document | Location |
+|----------|----------|
+| Deployment Guide | `docs/DEPLOYMENT_GUIDE.md` |
+| Administrator Guide | `docs/ADMIN_GUIDE.md` |
+| User Guide | `docs/USER_GUIDE.md` |
+| API Documentation | `docs/API_DOCUMENTATION.md` |
+| Architecture Overview | `docs/architecture.md` |
+| Local Development Setup | `docs/local-development.md` |
+| Demo Data Seed Script | `scripts/seed-demo-data.sql` |
