@@ -12,7 +12,7 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { useUiStore } from '@/stores/uiStore';
+import { useUIStore } from '@/stores/uiStore';
 import { NotificationPanel } from './NotificationPanel';
 import { SearchBar } from '@/components/common/SearchBar';
 
@@ -23,7 +23,7 @@ interface NavbarProps {
 export function Navbar({ height }: NavbarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { colorMode, toggleColorMode } = useUiStore();
+  const { colorMode, toggleColorMode } = useUIStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
 
@@ -80,7 +80,7 @@ export function Navbar({ height }: NavbarProps) {
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
           <MenuItem disabled>
             <Box>
-              <Typography variant="body2" fontWeight={600}>{user?.displayName}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{user?.displayName}</Typography>
               <Typography variant="caption" color="text.secondary">{user?.email}</Typography>
             </Box>
           </MenuItem>

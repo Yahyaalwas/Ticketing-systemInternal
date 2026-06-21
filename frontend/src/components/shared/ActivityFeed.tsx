@@ -107,7 +107,7 @@ export function ActivityFeed({ ticketId }: ActivityFeedProps) {
             <Box sx={{ pb: 2.5, flex: 1, minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                 <UserAvatar name={item.actorName} avatarUrl={item.actorAvatarUrl} size={20} />
-                <Typography variant="body2" fontWeight={600} component="span">{item.actorName}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }} component="span">{item.actorName}</Typography>
                 <Typography variant="body2" color="text.secondary" component="span">{getDescription(item)}</Typography>
               </Box>
               <Tooltip title={formatDateTime(item.occurredAt)} placement="bottom-start">

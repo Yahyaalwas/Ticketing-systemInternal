@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Button, Typography, Container } from '@mui/material';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { ErrorOutlined as ErrorOutlineIcon } from '@mui/icons-material';
 
 interface State { hasError: boolean; error?: Error; }
 

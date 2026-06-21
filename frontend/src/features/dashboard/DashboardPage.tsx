@@ -1,6 +1,6 @@
 import {
   Box, Grid, Card, CardContent, Typography, Skeleton,
-  Table, TableBody, TableCell, TableHead, TableRow, Chip,
+  Table, TableBody, TableCell, TableHead, TableRow,
 } from '@mui/material';
 import {
   BugReport as BugIcon, CheckCircle as DoneIcon,
@@ -8,7 +8,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getDashboard } from '@/api/dashboard';
+import { dashboardApi } from '@/api/dashboard';
 import { StatusChip } from '@/components/common/StatusChip';
 import { PriorityChip } from '@/components/common/PriorityChip';
 import { formatDate } from '@/utils/date';
@@ -31,7 +31,7 @@ function KpiCard({ title, value, icon, color, loading }: KpiCardProps) {
           {icon}
         </Box>
         <Box>
-          <Typography variant="h4" fontWeight={700}>
+          <Typography variant="h4" sx={{ fontWeight: 700 }}>
             {loading ? <Skeleton width={60} /> : value}
           </Typography>
           <Typography variant="body2" color="text.secondary">{title}</Typography>
@@ -42,13 +42,13 @@ function KpiCard({ title, value, icon, color, loading }: KpiCardProps) {
 }
 
 export default function DashboardPage() {
-  const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: getDashboard });
+  const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.get });
 
   const kpis = [
-    { title: 'Total Tickets', value: data?.totalTickets ?? 0, icon: <TotalIcon />, color: '#0052CC' },
-    { title: 'Open', value: data?.openTickets ?? 0, icon: <BugIcon />, color: '#FF8B00' },
-    { title: 'Resolved', value: data?.resolvedTickets ?? 0, icon: <DoneIcon />, color: '#36B37E' },
-    { title: 'Overdue', value: data?.overdueTickets ?? 0, icon: <OverdueIcon />, color: '#FF5630' },
+    { title: 'My Open', value: data?.myOpenTickets?.length ?? 0, icon: <TotalIcon />, color: '#0052CC' },
+    { title: 'Assigned to Me', value: data?.assignedToMe?.length ?? 0, icon: <BugIcon />, color: '#FF8B00' },
+    { title: 'Reported by Me', value: data?.reportedByMe?.length ?? 0, icon: <DoneIcon />, color: '#36B37E' },
+    { title: 'Overdue', value: data?.overdueTickets?.length ?? 0, icon: <OverdueIcon />, color: '#FF5630' },
   ];
 
   const byStatusData = data?.ticketsByStatus?.map((s) => ({ name: s.statusName, value: s.count })) ?? [];
@@ -56,9 +56,9 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={3}>Dashboard</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>Dashboard</Typography>
 
-      <Grid container spacing={2} mb={3}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {kpis.map((kpi) => (
           <Grid key={kpi.title} size={{ xs: 12, sm: 6, md: 3 }}>
             <KpiCard {...kpi} loading={isLoading} />
@@ -66,11 +66,11 @@ export default function DashboardPage() {
         ))}
       </Grid>
 
-      <Grid container spacing={2} mb={3}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} mb={2}>By Status</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>By Status</Typography>
               {isLoading ? <Skeleton variant="rectangular" height={200} /> : (
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
@@ -88,7 +88,7 @@ export default function DashboardPage() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} mb={2}>By Priority</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>By Priority</Typography>
               {isLoading ? <Skeleton variant="rectangular" height={200} /> : (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={byPriorityData}>
@@ -106,7 +106,7 @@ export default function DashboardPage() {
 
       <Card>
         <CardContent>
-          <Typography variant="subtitle1" fontWeight={600} mb={2}>My Recent Tickets</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Recently Updated</Typography>
           {isLoading ? (
             Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} height={48} sx={{ mb: 0.5 }} />)
           ) : (
@@ -121,17 +121,21 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(data?.myRecentTickets ?? []).map((t) => (
-                  <TableRow key={t.id} hover>
-                    <TableCell><Typography variant="caption" fontFamily="monospace">{t.ticketKey}</Typography></TableCell>
+                {(data?.recentlyUpdated ?? []).map((t) => (
+                  <TableRow key={t.ticketId} hover>
+                    <TableCell><Typography variant="caption" sx={{ fontFamily: 'monospace' }}>{t.ticketKey}</Typography></TableCell>
                     <TableCell><Typography variant="body2" noWrap sx={{ maxWidth: 280 }}>{t.title}</Typography></TableCell>
-                    <TableCell><StatusChip label={t.statusName} category={t.statusCategory} /></TableCell>
+                    <TableCell><StatusChip label={t.statusName} category={''} /></TableCell>
                     <TableCell><PriorityChip priority={t.priorityName} /></TableCell>
                     <TableCell><Typography variant="caption">{formatDate(t.dueDate)}</Typography></TableCell>
                   </TableRow>
                 ))}
-                {(data?.myRecentTickets ?? []).length === 0 && (
-                  <TableRow><TableCell colSpan={5} align="center"><Typography variant="body2" color="text.secondary">No tickets assigned to you</Typography></TableCell></TableRow>
+                {(data?.recentlyUpdated ?? []).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography variant="body2" color="text.secondary">No recent tickets</Typography>
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>

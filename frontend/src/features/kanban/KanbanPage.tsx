@@ -16,7 +16,8 @@ import {
   SortableContext, verticalListSortingStrategy, useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { getKanbanBoard, transitionTicket } from '@/api/tickets';
+import { ticketsApi } from '@/api/tickets';
+import { KanbanBoardDto } from '@/types';
 import { PriorityChip } from '@/components/common/PriorityChip';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { formatDate } from '@/utils/date';
@@ -55,10 +56,10 @@ function TicketCard({ ticket, overlay }: TicketCardProps) {
       }}
     >
       <CardContent sx={{ p: '10px !important' }}>
-        <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
           {ticket.ticketKey}
         </Typography>
-        <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5, mb: 1, lineHeight: 1.4 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5, mb: 1, lineHeight: 1.4 }}>
           {ticket.title}
         </Typography>
         {ticket.labelNames.length > 0 && (
@@ -98,7 +99,7 @@ function TicketCard({ ticket, overlay }: TicketCardProps) {
           </Box>
         </Box>
         {ticket.dueDate && (
-          <Typography variant="caption" color={isOverdue ? 'error' : 'text.secondary'} display="block" mt={0.5}>
+          <Typography variant="caption" color={isOverdue ? 'error' : 'text.secondary'} sx={{ display: 'block', mt: 0.5 }}>
             Due: {formatDate(ticket.dueDate)}
           </Typography>
         )}
@@ -134,7 +135,7 @@ function KanbanColumn({ column }: ColumnProps) {
           borderColor: column.statusColor ?? 'divider',
         }}
       >
-        <Typography variant="subtitle2" fontWeight={700}>{column.statusName}</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{column.statusName}</Typography>
         <Chip
           label={column.tickets.length + (column.wipLimit ? `/${column.wipLimit}` : '')}
           size="small"
@@ -161,15 +162,15 @@ export default function KanbanPage() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<KanbanBoardDto>({
     queryKey: ['kanban', projectId, search],
-    queryFn: () => getKanbanBoard({ projectId, search: search || undefined }),
+    queryFn: () => ticketsApi.getKanbanBoard(projectId, { search: search || undefined }) as Promise<KanbanBoardDto>,
     enabled: !!projectId,
   });
 
   const transitionMutation = useMutation({
-    mutationFn: ({ ticketId, statusId }: { ticketId: string; statusId: number }) =>
-      transitionTicket(ticketId, statusId),
+    mutationFn: ({ ticketId, statusId, etag }: { ticketId: string; statusId: number; etag: string }) =>
+      ticketsApi.transition(ticketId, { toStatusId: statusId }, etag),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['kanban'] }),
   });
 
@@ -195,14 +196,15 @@ export default function KanbanPage() {
 
     if (!targetColumn || !sourceColumn || targetColumn.statusId === sourceColumn.statusId) return;
 
-    transitionMutation.mutate({ ticketId: String(active.id), statusId: targetColumn.statusId });
+    const movedTicket = allTickets.find((t) => t.id === String(active.id));
+    transitionMutation.mutate({ ticketId: String(active.id), statusId: targetColumn.statusId, etag: movedTicket?.rowVersion ?? '' });
   };
 
   if (!projectId) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">Select a project to view its Kanban board.</Typography>
-        <Typography variant="caption" color="text.disabled" display="block" mt={1}>
+        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1 }}>
           Add ?projectId=&lt;uuid&gt; to the URL
         </Typography>
       </Box>
@@ -212,10 +214,10 @@ export default function KanbanPage() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {data?.projectName ?? 'Kanban Board'}
           {data?.projectKey && (
-            <Typography component="span" variant="caption" color="text.secondary" ml={1} fontFamily="monospace">
+            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1, fontFamily: 'monospace' }}>
               {data.projectKey}
             </Typography>
           )}
@@ -227,8 +229,8 @@ export default function KanbanPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: 240 }}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
+          slotProps={{
+            input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> },
           }}
         />
       </Box>

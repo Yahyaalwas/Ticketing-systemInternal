@@ -19,7 +19,8 @@ import {
   Skeleton,
   Stack,
 } from '@mui/material';
-import Grid2 from '@mui/material/Unstable_Grid2';
+import { Grid } from '@mui/material';
+const Grid2 = Grid;
 import {
   Home as HomeIcon,
   Edit as EditIcon,
@@ -120,7 +121,7 @@ function InlineTitleEdit({ value, onSave, loading }: InlineTitleEditProps) {
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-      <Typography variant="h5" fontWeight={700} sx={{ flex: 1, lineHeight: 1.4 }}>
+      <Typography variant="h5" sx={{ fontWeight: 700, flex: 1, lineHeight: 1.4 }}>
         {value}
       </Typography>
       <Tooltip title="Edit title">
@@ -213,11 +214,11 @@ function DescriptionCard({ html, text, onSave, loading }: DescriptionCardProps) 
             {html ? (
               <MarkdownRenderer html={html} />
             ) : text ? (
-              <Typography variant="body2" whiteSpace="pre-wrap">
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                 {text}
               </Typography>
             ) : (
-              <Typography variant="body2" color="text.disabled" fontStyle="italic">
+              <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
                 No description provided. Click the edit button to add one.
               </Typography>
             )}
@@ -387,7 +388,7 @@ export function TicketDetailPage() {
         >
           {ticket.projectKey}
         </MuiLink>
-        <Typography color="text.primary" fontWeight={500}>
+        <Typography color="text.primary" sx={{ fontWeight: 500 }}>
           {ticket.ticketKey}
         </Typography>
       </Breadcrumbs>

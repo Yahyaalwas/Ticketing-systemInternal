@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
-import { useUiStore } from '@/stores/uiStore';
+import { useUIStore } from '@/stores/uiStore';
 import { useAiStore } from '@/stores/aiStore';
 import { AiAssistantPanel } from '@/features/ai/AiAssistantPanel';
 import { AiToggleButton } from '@/features/ai/components/AiToggleButton';
@@ -13,7 +13,7 @@ const NAVBAR_HEIGHT = 56;
 const AI_PANEL_WIDTH = 480;
 
 export function AppLayout() {
-  const sidebarOpen = useUiStore((s) => s.sidebarOpen);
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const aiOpen = useAiStore((s) => s.isOpen);
   const sidebarWidth = sidebarOpen ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
 

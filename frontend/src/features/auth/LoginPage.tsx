@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { login } from '@/api/auth';
+import { authApi } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 
 const schema = z.object({
@@ -25,12 +25,14 @@ export default function LoginPage() {
   });
 
   const mutation = useMutation({
-    mutationFn: login,
-    onSuccess: (data) => {
+    mutationFn: authApi.login,
+    onSuccess: (data, variables) => {
       setAuth(data.token, {
-        id: data.userId,
+        userId: data.userId,
+        userPrincipalName: variables.userPrincipalName,
         displayName: data.displayName,
         email: data.email,
+        avatarUrl: data.avatarUrl,
         roles: data.roles,
       });
       navigate('/dashboard');
@@ -52,8 +54,8 @@ export default function LoginPage() {
       <Card sx={{ width: '100%', maxWidth: 420, mx: 2 }}>
         <CardContent sx={{ p: 4 }}>
           <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Typography variant="h4" fontWeight={700} color="primary">ITS</Typography>
-            <Typography color="text.secondary" variant="body2" mt={0.5}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }} color="primary">ITS</Typography>
+            <Typography color="text.secondary" variant="body2" sx={{ mt: 0.5 }}>
               Internal Ticketing System
             </Typography>
           </Box>

@@ -111,7 +111,7 @@ function ConfirmDeleteDialog({ open, onClose, onConfirm, loading }: ConfirmDelet
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Are you sure you want to delete this ticket? This action cannot be undone.
         </Typography>
-        <Stack direction="row" spacing={1} justifyContent="flex-end">
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
           <Button onClick={onClose} disabled={loading}>
             Cancel
           </Button>
@@ -151,7 +151,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
   const [riskExpanded, setRiskExpanded] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const isWatching = ticket.watchers.some((w) => w.userId === user.userId);
+  const isWatching = ticket.watchers.some((w) => w.userId === user?.userId);
 
   // ── Reference data ────────────────────────────────────────────────────────
 
@@ -283,6 +283,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleWatchToggle = () => {
+    if (!user) return;
     if (isWatching) {
       removeWatcherMutation.mutate(user.userId);
     } else {
@@ -323,14 +324,14 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Quick Actions ─────────────────────────────────────────── */}
       <Box sx={{ pb: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
           Quick Actions
         </Typography>
         <Stack direction="row" spacing={0.5}>
           <Tooltip title="Assign to Me">
             <IconButton
               size="small"
-              onClick={() => assigneeMutation.mutate(user.userId)}
+              onClick={() => user && assigneeMutation.mutate(user.userId)}
               disabled={assigneeMutation.isPending}
             >
               <PersonAddIcon fontSize="small" />
@@ -377,7 +378,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Status ───────────────────────────────────────────────── */}
       <Box sx={{ py: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
           Status
         </Typography>
         <Button
@@ -399,7 +400,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Priority ─────────────────────────────────────────────── */}
       <Box sx={{ py: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
           Priority
         </Typography>
         <TextField
@@ -412,7 +413,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
             priorityMutation.mutate(val === '' ? null : Number(val));
           }}
           disabled={priorityMutation.isPending}
-          SelectProps={{ native: true }}
+          slotProps={{ select: { native: true } }}
           sx={{ '& select': { display: 'flex', alignItems: 'center' } }}
         >
           <option value="">No Priority</option>
@@ -436,7 +437,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Assignee ─────────────────────────────────────────────── */}
       <Box sx={{ py: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
           Assignee
         </Typography>
         <Autocomplete<User | null, false, false, false>
@@ -471,22 +472,24 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
             <TextField
               {...params}
               placeholder="Search users…"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: assigneeValue ? (
-                  <Avatar
-                    src={assigneeValue.avatarUrl}
-                    sx={{ width: 20, height: 20, fontSize: 10, mr: 0.5 }}
-                  >
-                    {stringAvatar(assigneeValue.displayName)}
-                  </Avatar>
-                ) : undefined,
-                endAdornment: (
-                  <>
-                    {assigneeLoading ? <CircularProgress size={14} /> : null}
-                    {params.InputProps.endAdornment}
-                  </>
-                ),
+              slotProps={{
+                input: {
+                  // spread removed - MUI v9 Autocomplete params no longer has InputProps
+                  startAdornment: assigneeValue ? (
+                    <Avatar
+                      src={assigneeValue.avatarUrl}
+                      sx={{ width: 20, height: 20, fontSize: 10, mr: 0.5 }}
+                    >
+                      {stringAvatar(assigneeValue.displayName)}
+                    </Avatar>
+                  ) : undefined,
+                  endAdornment: (
+                    <>
+                      {assigneeLoading ? <CircularProgress size={14} /> : null}
+                      {(params as unknown as { InputProps: { endAdornment: React.ReactNode } }).InputProps?.endAdornment}
+                    </>
+                  ),
+                },
               }}
             />
           )}
@@ -497,7 +500,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Reporter ─────────────────────────────────────────────── */}
       <Box sx={{ py: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
           Reporter
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -512,7 +515,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Due Date ─────────────────────────────────────────────── */}
       <Box sx={{ py: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
           Due Date
         </Typography>
         <TextField
@@ -524,7 +527,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
             dueDateMutation.mutate(e.target.value || null);
           }}
           disabled={dueDateMutation.isPending}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         {slaBreached && (
           <Chip
@@ -540,7 +543,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Labels ───────────────────────────────────────────────── */}
       <Box sx={{ py: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
           Labels
         </Typography>
         {ticket.labels.length === 0 ? (
@@ -614,7 +617,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
 
       {/* ── Story Points / Estimates ──────────────────────────────── */}
       <Box sx={{ py: 1.5 }}>
-        <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
           Estimates
         </Typography>
         <Stack spacing={1}>
@@ -636,7 +639,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
                 }}
                 autoFocus
                 sx={{ width: 80 }}
-                inputProps={{ min: 0 }}
+                slotProps={{ htmlInput: { min: 0 } }}
               />
             ) : (
               <Typography
@@ -676,7 +679,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
                 }}
                 autoFocus
                 sx={{ width: 80 }}
-                inputProps={{ min: 0, step: 0.5 }}
+                slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
               />
             ) : (
               <Typography
@@ -735,13 +738,13 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
                 <Skeleton key={i} variant="rounded" height={48} />
               ))}
             </Stack>
-          ) : similarData?.tickets?.length ? (
+          ) : similarData?.related?.length ? (
             <Stack spacing={0.75}>
-              {similarData.tickets.map((t) => (
+              {similarData.related.map((t) => (
                 <Box
-                  key={t.ticketId}
+                  key={t.id}
                   component="a"
-                  href={`/tickets/${t.ticketId}`}
+                  href={`/tickets/${t.id}`}
                   sx={{
                     display: 'block',
                     p: 1,
@@ -754,12 +757,12 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                    <Typography variant="caption" color="primary.main" fontWeight={600}>
+                    <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
                       {t.ticketKey}
                     </Typography>
-                    <Tooltip title={t.reason}>
+                    <Tooltip title={t.resolution ?? ""}>
                       <Chip
-                        label={`${Math.round(t.similarity * 100)}%`}
+                        label={`${t.similarityPercent}%`}
                         size="small"
                         color="primary"
                         variant="outlined"
@@ -771,7 +774,7 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
                     {t.title}
                   </Typography>
                   <Typography variant="caption" color="text.disabled">
-                    {t.projectName}
+                    {t.statusName}
                   </Typography>
                 </Box>
               ))}
@@ -813,17 +816,17 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
                   Overall Risk:
                 </Typography>
                 <Chip
-                  label={riskData.overallRisk}
+                  label={riskData.riskLevel}
                   size="small"
                   sx={{
-                    bgcolor: overallRiskBg(riskData.overallRisk.toLowerCase()),
+                    bgcolor: overallRiskBg(riskData.riskLevel.toLowerCase()),
                     color: 'white',
                     fontWeight: 600,
                     textTransform: 'capitalize',
                   }}
                 />
               </Box>
-              {riskData.items.map((item, idx) => (
+              {riskData.risks.map((item, idx) => (
                 <Box
                   key={idx}
                   sx={{
@@ -841,16 +844,16 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
                       color={riskChipColor(item.severity)}
                       sx={{ height: 18, fontSize: 10, textTransform: 'capitalize' }}
                     />
-                    <Typography variant="caption" fontWeight={600}>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
                       {item.title}
                     </Typography>
                   </Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {item.description}
                   </Typography>
-                  {item.recommendation && (
-                    <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.25 }}>
-                      ✓ {item.recommendation}
+                  {item.riskType && (
+                    <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.25 }}>
+                      Type: {item.riskType}
                     </Typography>
                   )}
                 </Box>
@@ -869,10 +872,11 @@ export function TicketSidebar({ ticket, etag, onTicketUpdate }: TicketSidebarPro
         <TransitionDialog
           open={transitionOpen}
           ticketId={ticket.id}
+          projectId={ticket.projectId}
           currentStatusName={ticket.statusName}
           etag={etag}
           onClose={() => setTransitionOpen(false)}
-          onTransitioned={() => {
+          onSuccess={() => {
             setTransitionOpen(false);
             onTicketUpdate();
           }}

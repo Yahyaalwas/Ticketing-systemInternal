@@ -56,7 +56,7 @@ function SingleComment({ comment, ticketId, currentUserId, onDeleted, onEdited }
       <UserAvatar name={comment.authorName} avatarUrl={comment.authorAvatarUrl} size={32} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-          <Typography variant="body2" fontWeight={700}>{comment.authorName}</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>{comment.authorName}</Typography>
           {comment.isEdited && (
             <Tooltip title="This comment was edited">
               <Chip icon={<HistoryIcon />} label="edited" size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }} />
@@ -146,7 +146,7 @@ export function CommentsPanel({ ticketId }: CommentsPanelProps) {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={700}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
           Comments {data?.totalCount ? `(${data.totalCount})` : ''}
         </Typography>
       </Box>
@@ -197,7 +197,7 @@ export function CommentsPanel({ ticketId }: CommentsPanelProps) {
         <Box sx={{ flex: 1 }}>
           <CommentEditor
             ticketId={ticketId}
-            onSubmit={(body) => addMutation.mutateAsync(body)}
+            onSubmit={(body) => addMutation.mutateAsync(body).then(() => undefined)}
             loading={addMutation.isPending}
           />
         </Box>

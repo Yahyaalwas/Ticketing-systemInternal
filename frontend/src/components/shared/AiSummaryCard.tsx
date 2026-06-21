@@ -1,6 +1,6 @@
 import {
   Box, Typography, Button, Chip, LinearProgress, Skeleton,
-  Tooltip, Alert, Divider, List, ListItem, ListItemText,
+  Tooltip, List, ListItem,
   CircularProgress, IconButton,
 } from '@mui/material';
 import {
@@ -9,8 +9,7 @@ import {
   TaskAlt as ActionIcon,
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { summarizeTicket } from '@/api/ai';
-import { TicketAiSummaryDto } from '@/api/ai';
+import { summarizeTicket, TicketAiSummaryDto } from '@/api/ai';
 import { formatDistanceToNow } from '@/utils/date';
 
 const SEVERITY_COLOR = (pct: number) =>
@@ -23,26 +22,22 @@ interface AiSummaryCardProps {
 export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
   const qc = useQueryClient();
 
-  const { data: summary, isLoading, isFetching } = useQuery({
+  const { data: summary } = useQuery<TicketAiSummaryDto>({
     queryKey: ['ai-summary', ticketId],
     queryFn: () => summarizeTicket(ticketId, false),
     staleTime: 60 * 60 * 1000,
     retry: false,
-    enabled: false, // only load on demand
+    enabled: false,
   });
 
   const refreshMutation = useMutation({
     mutationFn: () => summarizeTicket(ticketId, true),
-    onSuccess: (data) => {
-      qc.setQueryData(['ai-summary', ticketId], data);
-    },
+    onSuccess: (data) => { qc.setQueryData(['ai-summary', ticketId], data); },
   });
 
   const generateMutation = useMutation({
     mutationFn: () => summarizeTicket(ticketId, false),
-    onSuccess: (data) => {
-      qc.setQueryData(['ai-summary', ticketId], data);
-    },
+    onSuccess: (data) => { qc.setQueryData(['ai-summary', ticketId], data); },
   });
 
   const current = summary ?? (refreshMutation.data || generateMutation.data);
@@ -52,7 +47,7 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: current ? 2 : 0 }}>
         <AiIcon sx={{ color: 'primary.main', fontSize: 20 }} />
-        <Typography variant="subtitle1" fontWeight={700}>AI Summary</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>AI Summary</Typography>
         {current?.wasFromCache && (
           <Chip label="cached" size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }} />
         )}
@@ -76,7 +71,7 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
 
       {isGenerating && (
         <Box>
-          <Typography variant="caption" color="text.secondary" mb={0.5} display="block">Analyzing ticket...</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Analyzing ticket...</Typography>
           <LinearProgress sx={{ mb: 1 }} />
           {[1, 2, 3].map(i => <Skeleton key={i} height={16} sx={{ mb: 0.5 }} width={`${80 - i * 10}%`} />)}
         </Box>
@@ -85,7 +80,7 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
       {!current && !isGenerating && (
         <Box sx={{ textAlign: 'center', py: 2 }}>
           <AiIcon sx={{ fontSize: 40, color: 'action.disabled', mb: 1 }} />
-          <Typography variant="body2" color="text.secondary" mb={2}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Get an AI-powered analysis of this ticket including executive summary, blockers, risks, and action items.
           </Typography>
           <Button
@@ -101,10 +96,9 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
 
       {current && !isGenerating && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Confidence score */}
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="caption" fontWeight={600} color="text.secondary">COMPLETION CONFIDENCE</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600 }} color="text.secondary">COMPLETION CONFIDENCE</Typography>
               <Chip
                 label={`${current.completionConfidencePercent}%`}
                 size="small"
@@ -119,17 +113,15 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
             />
           </Box>
 
-          {/* Executive summary */}
           <Box>
-            <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>
+            <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }} color="text.secondary">
               EXECUTIVE SUMMARY
             </Typography>
             <Typography variant="body2" sx={{ lineHeight: 1.7 }}>{current.executiveSummary}</Typography>
           </Box>
 
-          {/* Simple explanation */}
           <Box sx={{ bgcolor: 'action.hover', borderRadius: 1.5, p: 1.5 }}>
-            <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>
+            <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }} color="text.secondary">
               SIMPLE EXPLANATION
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
@@ -138,12 +130,11 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            {/* Blockers */}
             {current.blockers.length > 0 && (
               <Box sx={{ flex: 1, minWidth: 180 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75 }}>
                   <BlockIcon sx={{ fontSize: 14, color: 'error.main' }} />
-                  <Typography variant="caption" fontWeight={600} color="error.main">BLOCKERS</Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }} color="error.main">BLOCKERS</Typography>
                 </Box>
                 {current.blockers.map((b, i) => (
                   <Typography key={i} variant="body2" sx={{ mb: 0.25 }}>• {b}</Typography>
@@ -151,12 +142,11 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
               </Box>
             )}
 
-            {/* Risks */}
             {current.risks.length > 0 && (
               <Box sx={{ flex: 1, minWidth: 180 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75 }}>
                   <WarnIcon sx={{ fontSize: 14, color: 'warning.main' }} />
-                  <Typography variant="caption" fontWeight={600} color="warning.main">RISKS</Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }} color="warning.main">RISKS</Typography>
                 </Box>
                 {current.risks.map((r, i) => (
                   <Typography key={i} variant="body2" sx={{ mb: 0.25 }}>• {r}</Typography>
@@ -165,12 +155,11 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
             )}
           </Box>
 
-          {/* Action items */}
           {current.actionItems.length > 0 && (
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75 }}>
                 <ActionIcon sx={{ fontSize: 14, color: 'success.main' }} />
-                <Typography variant="caption" fontWeight={600} color="success.main">ACTION ITEMS</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600 }} color="success.main">ACTION ITEMS</Typography>
               </Box>
               {current.actionItems.map((a, i) => (
                 <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mb: 0.25 }}>
@@ -181,10 +170,9 @@ export function AiSummaryCard({ ticketId }: AiSummaryCardProps) {
             </Box>
           )}
 
-          {/* Key decisions */}
           {current.keyDecisions.length > 0 && (
             <Box>
-              <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.75}>
+              <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.75 }} color="text.secondary">
                 KEY DECISIONS
               </Typography>
               {current.keyDecisions.map((d, i) => (

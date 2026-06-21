@@ -1,18 +1,18 @@
-import { formatDistanceToNow as fnsFormatDistanceToNow, format, parseISO } from 'date-fns';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 export function formatDistanceToNow(dateStr: string | Date): string {
-  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr;
-  return fnsFormatDistanceToNow(date, { addSuffix: true });
+  return dayjs(dateStr).fromNow();
 }
 
 export function formatDate(dateStr: string | Date | null | undefined): string {
   if (!dateStr) return '—';
-  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr;
-  return format(date, 'MMM d, yyyy');
+  return dayjs(dateStr).format('MMM D, YYYY');
 }
 
 export function formatDateTime(dateStr: string | Date | null | undefined): string {
   if (!dateStr) return '—';
-  const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr;
-  return format(date, 'MMM d, yyyy HH:mm');
+  return dayjs(dateStr).format('MMM D, YYYY HH:mm');
 }

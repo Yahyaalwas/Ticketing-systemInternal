@@ -3,7 +3,7 @@ import {
   Button, Chip, Divider, CircularProgress,
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotifications, markAllRead, markRead } from '@/api/notifications';
+import { notificationsApi } from '@/api/notifications';
 import { formatDistanceToNow } from '@/utils/date';
 
 interface NotificationPanelProps {
@@ -17,17 +17,17 @@ export function NotificationPanel({ anchor, onClose }: NotificationPanelProps) {
 
   const { data, isLoading } = useQuery({
     queryKey: ['notifications'],
-    queryFn: getNotifications,
+    queryFn: notificationsApi.list,
     enabled: open,
   });
 
   const markAllMutation = useMutation({
-    mutationFn: markAllRead,
+    mutationFn: notificationsApi.markAllRead,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const markOneMutation = useMutation({
-    mutationFn: markRead,
+    mutationFn: notificationsApi.markRead,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
@@ -41,10 +41,10 @@ export function NotificationPanel({ anchor, onClose }: NotificationPanelProps) {
       onClose={onClose}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-      PaperProps={{ sx: { width: 360, maxHeight: 480 } }}
+      slotProps={{ paper: { sx: { width: 360, maxHeight: 480 } } }}
     >
       <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           Notifications {unreadCount > 0 && <Chip label={unreadCount} size="small" color="error" sx={{ ml: 1 }} />}
         </Typography>
         {unreadCount > 0 && (
@@ -74,10 +74,10 @@ export function NotificationPanel({ anchor, onClose }: NotificationPanelProps) {
                 onClick={() => !n.isRead && markOneMutation.mutate(n.id)}
               >
                 <ListItemText
-                  primary={<Typography variant="body2" fontWeight={n.isRead ? 400 : 600}>{n.title}</Typography>}
+                  primary={<Typography variant="body2" sx={{ fontWeight: n.isRead ? 400 : 600 }}>{n.title}</Typography>}
                   secondary={
                     <>
-                      <Typography variant="caption" display="block">{n.message}</Typography>
+                      <Typography variant="caption" sx={{ display: 'block' }}>{n.message}</Typography>
                       <Typography variant="caption" color="text.secondary">{formatDistanceToNow(n.createdAt)}</Typography>
                     </>
                   }

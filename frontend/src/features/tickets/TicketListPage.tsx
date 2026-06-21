@@ -7,7 +7,7 @@ import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { listTickets } from '@/api/tickets';
+import { ticketsApi } from '@/api/tickets';
 import { StatusChip } from '@/components/common/StatusChip';
 import { PriorityChip } from '@/components/common/PriorityChip';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -28,14 +28,17 @@ export default function TicketListPage() {
     if (s) setSearch(s);
   }, [searchParams]);
 
+  const projectId = searchParams.get('projectId') ?? '';
+
   const { data, isLoading } = useQuery({
-    queryKey: ['tickets', page, pageSize, search, statusFilter],
-    queryFn: () => listTickets({
-      page,
+    queryKey: ['tickets', projectId, page, pageSize, search, statusFilter],
+    queryFn: () => ticketsApi.list({
+      projectId,
+      pageNumber: page,
       pageSize,
       search: search || undefined,
-      statusName: statusFilter || undefined,
     }),
+    enabled: !!projectId,
   });
 
   const tickets = data?.items ?? [];
@@ -43,7 +46,7 @@ export default function TicketListPage() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Tickets</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Tickets</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/tickets/new')}>
           New Ticket
         </Button>
@@ -56,8 +59,8 @@ export default function TicketListPage() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           sx={{ width: 280 }}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
+          slotProps={{
+            input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> },
           }}
         />
         <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -107,7 +110,7 @@ export default function TicketListPage() {
                     onClick={() => navigate(`/tickets/${t.id}`)}
                   >
                     <TableCell>
-                      <Typography variant="caption" fontFamily="monospace" color="primary.main" fontWeight={600}>
+                      <Typography variant="caption" color="primary.main" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
                         {t.ticketKey}
                       </Typography>
                     </TableCell>

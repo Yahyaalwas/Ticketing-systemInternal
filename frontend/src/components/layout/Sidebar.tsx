@@ -14,7 +14,7 @@ import {
 } from '@mui/icons-material';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
-import { useUiStore } from '@/stores/uiStore';
+import { useUIStore } from '@/stores/uiStore';
 
 interface SidebarProps {
   width: number;
@@ -33,7 +33,7 @@ const NAV_ITEMS = [
 
 export function Sidebar({ width, collapsedWidth, navbarHeight }: SidebarProps) {
   const theme = useTheme();
-  const { sidebarOpen, toggleSidebar } = useUiStore();
+  const { sidebarOpen, toggleSidebar } = useUIStore();
   const location = useLocation();
   const sb = (theme.palette as any).sidebar;
 
@@ -68,7 +68,7 @@ export function Sidebar({ width, collapsedWidth, navbarHeight }: SidebarProps) {
         }}
       >
         {sidebarOpen && (
-          <Typography variant="h6" fontWeight={700} color="inherit" noWrap>
+          <Typography variant="h6" sx={{ fontWeight: 700 }} color="inherit" noWrap>
             ITS
           </Typography>
         )}
@@ -110,7 +110,7 @@ export function Sidebar({ width, collapsedWidth, navbarHeight }: SidebarProps) {
                   >
                     {icon}
                   </ListItemIcon>
-                  {sidebarOpen && <ListItemText primary={label} primaryTypographyProps={{ fontSize: 14 }} />}
+                  {sidebarOpen && <ListItemText primary={label} slotProps={{ primary: { style: { fontSize: 14 } } }} />}
                 </ListItemButton>
               </Tooltip>
             </ListItem>

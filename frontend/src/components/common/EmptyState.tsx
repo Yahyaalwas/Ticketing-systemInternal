@@ -22,7 +22,7 @@ export function EmptyState({
         {icon ?? <InboxIcon sx={{ fontSize: 56 }} />}
       </Box>
       <Typography variant="h6" color="text.secondary" gutterBottom>{title}</Typography>
-      {message && <Typography variant="body2" color="text.disabled" mb={3}>{message}</Typography>}
+      {message && <Typography variant="body2" color="text.disabled" sx={{ mb: 3 }}>{message}</Typography>}
       {actionLabel && onAction && (
         <Button variant="contained" onClick={onAction}>{actionLabel}</Button>
       )}

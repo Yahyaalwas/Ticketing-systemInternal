@@ -6,6 +6,7 @@ import {
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ticketsApi } from '@/api/tickets';
+import { KanbanBoardDto } from '@/types';
 import { useNotification } from '@/hooks/useNotification';
 
 interface TransitionDialogProps {
@@ -33,15 +34,15 @@ export function TransitionDialog({
   const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
   const [comment, setComment] = useState('');
 
-  const { data: kanban, isLoading: loadingStatuses } = useQuery({
+  const { data: kanban, isLoading: loadingStatuses } = useQuery<KanbanBoardDto>({
     queryKey: ['kanban-statuses', projectId],
-    queryFn: () => ticketsApi.getKanbanBoard(projectId),
+    queryFn: () => ticketsApi.getKanbanBoard(projectId) as Promise<KanbanBoardDto>,
     enabled: open && !!projectId,
     staleTime: 5 * 60_000,
   });
 
   const availableStatuses = (kanban?.columns ?? [])
-    .filter(c => c.statusName !== currentStatusName)
+    .filter((c) => c.statusName !== currentStatusName)
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
   const transitionMutation = useMutation({
@@ -83,10 +84,10 @@ export function TransitionDialog({
           <Typography color="text.secondary">No available transitions.</Typography>
         ) : (
           <Box>
-            <Typography variant="subtitle2" mb={1.5}>Select new status:</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Select new status:</Typography>
             <RadioGroup value={selectedStatusId ?? ''} onChange={(e) => setSelectedStatusId(Number(e.target.value))}>
-              {availableStatuses.map(s => {
-                const color = s.statusColor ?? CATEGORY_COLOR[s.statusCategory.toLowerCase()] ?? '#97A0AF';
+              {availableStatuses.map((s) => {
+                const color = s.statusColor ?? CATEGORY_COLOR[(s.statusCategory ?? '').toLowerCase()] ?? '#97A0AF';
                 return (
                   <FormControlLabel
                     key={s.statusId}

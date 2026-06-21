@@ -161,7 +161,7 @@ export function CommentEditor({
         <Paper variant="outlined" sx={{ mt: 1, p: 1.5, bgcolor: 'action.hover', borderColor: 'primary.light' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
             <AiIcon color="primary" fontSize="small" />
-            <Typography variant="caption" fontWeight={600} color="primary">AI Suggestion</Typography>
+            <Typography variant="caption" sx={{ fontWeight: 600 }} color="primary">AI Suggestion</Typography>
             <Typography variant="caption" color="text.secondary">(Review before using)</Typography>
           </Box>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 1.5 }}>{aiPreview}</Typography>
