@@ -44,17 +44,37 @@ public sealed class AnswerKnowledgeQuestionQueryHandler(
                 (t.Description != null && t.Description.Contains(k)));
         }
 
-        var tickets = await ticketQuery
+        var ticketsRaw = await ticketQuery
             .OrderByDescending(t => t.UpdatedAt)
             .Take(15)
             .Select(t => new
             {
-                t.Id, t.TicketKey, t.Title,
-                Status = t.Status!.Name,
-                t.Description,
-                Resolution = t.Resolution != null ? t.Resolution.Name : null
+                t.Id, t.TicketNumber, t.ProjectId, t.Title,
+                t.StatusId, t.ResolutionId, t.Description
             })
             .ToListAsync(ct);
+
+        // Bulk-load reference data
+        var ticketStatusIds = ticketsRaw.Select(t => t.StatusId).Distinct().ToList();
+        var ticketResolutionIds = ticketsRaw.Where(t => t.ResolutionId.HasValue).Select(t => t.ResolutionId!.Value).Distinct().ToList();
+        var ticketProjectIds = ticketsRaw.Select(t => t.ProjectId).Distinct().ToList();
+
+        var ticketStatusMap = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => ticketStatusIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+        var ticketResolutionMap = await db.Resolutions.AsNoTracking()
+            .Where(r => ticketResolutionIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, r => r.Name, ct);
+        var ticketProjectMap = await db.Projects.AsNoTracking()
+            .Where(p => ticketProjectIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.ProjectKey, ct);
+
+        var tickets = ticketsRaw.Select(t => new
+        {
+            t.Id,
+            TicketKey = $"{ticketProjectMap.GetValueOrDefault(t.ProjectId, "")}-{t.TicketNumber}",
+            t.Title,
+            Status = ticketStatusMap.GetValueOrDefault(t.StatusId, "Unknown"),
+            t.Description,
+            Resolution = t.ResolutionId.HasValue ? ticketResolutionMap.GetValueOrDefault(t.ResolutionId.Value) : null
+        }).ToList();
 
         if (tickets.Count == 0)
         {

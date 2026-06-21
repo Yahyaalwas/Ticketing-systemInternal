@@ -20,20 +20,39 @@ public sealed class GenerateCommentCommandHandler(
         if (!await rateLimiter.IsAllowedAsync(userId, "generate-comment", ct))
             throw new InvalidOperationException("AI rate limit exceeded.");
 
-        var ticket = await db.Tickets
+        var ticketRaw = await db.Tickets
             .AsNoTracking()
             .Where(t => t.Id == request.TicketId)
-            .Select(t => new { t.Title, Status = t.Status!.Name, Priority = t.Priority != null ? t.Priority.Name : "None" })
+            .Select(t => new { t.Title, t.StatusId, t.PriorityId })
             .FirstOrDefaultAsync(ct)
             ?? throw new KeyNotFoundException($"Ticket {request.TicketId} not found.");
 
-        var recentComments = await db.Comments
+        var statusName = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => s.Id == ticketRaw.StatusId).Select(s => s.Name).FirstOrDefaultAsync(ct) ?? "Unknown";
+        var priorityName = ticketRaw.PriorityId.HasValue
+            ? await db.Priorities.AsNoTracking().Where(p => p.Id == ticketRaw.PriorityId.Value).Select(p => p.Name).FirstOrDefaultAsync(ct) ?? "None"
+            : "None";
+
+        var ticket = new { ticketRaw.Title, Status = statusName, Priority = priorityName };
+
+        var commentsRaw = await db.Comments
             .AsNoTracking()
             .Where(c => c.TicketId == request.TicketId && !c.IsDeleted)
             .OrderByDescending(c => c.CreatedAt)
             .Take(5)
-            .Select(c => new { Author = c.Author.DisplayName, c.Body })
+            .Select(c => new { c.AuthorUserId, c.Body })
             .ToListAsync(ct);
+
+        var commentAuthorIds = commentsRaw.Select(c => c.AuthorUserId).Distinct().ToList();
+        var commentAuthors = await db.Users.AsNoTracking()
+            .Where(u => commentAuthorIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+
+        var recentComments = commentsRaw.Select(c => new
+        {
+            Author = commentAuthors.GetValueOrDefault(c.AuthorUserId, "Unknown"),
+            c.Body
+        }).ToList();
 
         var contextBlock = string.Join("\n", recentComments.Select(c => $"[{c.Author}]: {c.Body}"));
 

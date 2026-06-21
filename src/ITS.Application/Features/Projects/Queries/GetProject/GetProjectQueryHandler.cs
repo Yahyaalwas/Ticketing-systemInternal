@@ -45,17 +45,10 @@ public sealed class GetProjectQueryHandler(
             .Select(d => new { d.Name })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var workflowTask = project.ActiveWorkflowId.HasValue
-            ? db.Workflows.AsNoTracking()
-                .Where(w => w.Id == project.ActiveWorkflowId.Value)
-                .Select(w => new { w.Name })
-                .FirstOrDefaultAsync(cancellationToken)
-            : Task.FromResult<object?>(null);
-
         var activeTicketCountTask = db.Tickets.AsNoTracking()
             .CountAsync(t => t.ProjectId == request.ProjectId && !t.IsDeleted, cancellationToken);
 
-        await Task.WhenAll(usersTask, rolesTask, leadTask, deptTask, workflowTask, activeTicketCountTask);
+        await Task.WhenAll(usersTask, rolesTask, leadTask, deptTask, activeTicketCountTask);
 
         var users = (await usersTask).ToDictionary(u => u.Id);
         var roles = (await rolesTask).ToDictionary(r => r.Id);
@@ -63,7 +56,6 @@ public sealed class GetProjectQueryHandler(
         var dept = await deptTask;
         var activeTicketCount = await activeTicketCountTask;
 
-        // Workflow name: re-query after WhenAll since workflowTask uses object?
         string? workflowName = null;
         if (project.ActiveWorkflowId.HasValue)
         {

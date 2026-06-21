@@ -38,28 +38,55 @@ public sealed class SummarizeTicketCommandHandler(
             }
         }
 
-        var ticket = await db.Tickets
+        var ticketRaw = await db.Tickets
             .AsNoTracking()
             .Where(t => t.Id == request.TicketId)
             .Select(t => new
             {
                 t.Id, t.Title, t.Description,
-                IssueType = t.IssueType!.Name,
-                Status = t.Status!.Name,
-                Priority = t.Priority != null ? t.Priority.Name : "None",
-                Assignee = t.Assignee != null ? t.Assignee.DisplayName : "Unassigned",
+                t.IssueTypeId, t.StatusId, t.PriorityId, t.AssigneeUserId,
                 t.CreatedAt, t.UpdatedAt, t.DueDate
             })
             .FirstOrDefaultAsync(ct)
             ?? throw new KeyNotFoundException($"Ticket {request.TicketId} not found.");
 
-        var comments = await db.Comments
+        var issueTypeName = await db.IssueTypes.AsNoTracking()
+            .Where(it => it.Id == ticketRaw.IssueTypeId).Select(it => it.Name).FirstOrDefaultAsync(ct) ?? "Unknown";
+        var statusName = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => s.Id == ticketRaw.StatusId).Select(s => s.Name).FirstOrDefaultAsync(ct) ?? "Unknown";
+        var priorityName = ticketRaw.PriorityId.HasValue
+            ? await db.Priorities.AsNoTracking().Where(p => p.Id == ticketRaw.PriorityId.Value).Select(p => p.Name).FirstOrDefaultAsync(ct) ?? "None"
+            : "None";
+        var assigneeName = ticketRaw.AssigneeUserId.HasValue
+            ? await db.Users.AsNoTracking().Where(u => u.Id == ticketRaw.AssigneeUserId.Value).Select(u => u.DisplayName).FirstOrDefaultAsync(ct) ?? "Unassigned"
+            : "Unassigned";
+
+        var ticket = new
+        {
+            ticketRaw.Id, ticketRaw.Title, ticketRaw.Description,
+            IssueType = issueTypeName, Status = statusName,
+            Priority = priorityName, Assignee = assigneeName,
+            ticketRaw.CreatedAt, ticketRaw.UpdatedAt, ticketRaw.DueDate
+        };
+
+        var commentsRaw = await db.Comments
             .AsNoTracking()
             .Where(c => c.TicketId == request.TicketId && !c.IsDeleted)
             .OrderBy(c => c.CreatedAt)
             .Take(30)
-            .Select(c => new { Author = c.Author.DisplayName, c.Body, c.CreatedAt })
+            .Select(c => new { c.AuthorUserId, c.Body, c.CreatedAt })
             .ToListAsync(ct);
+
+        var commentAuthorIds = commentsRaw.Select(c => c.AuthorUserId).Distinct().ToList();
+        var commentAuthors = await db.Users.AsNoTracking()
+            .Where(u => commentAuthorIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+
+        var comments = commentsRaw.Select(c => new
+        {
+            Author = commentAuthors.GetValueOrDefault(c.AuthorUserId, "Unknown"),
+            c.Body, c.CreatedAt
+        }).ToList();
 
         var commentBlock = comments.Count > 0
             ? string.Join("\n", comments.Select(c => $"[{c.Author} – {c.CreatedAt:g}]: {c.Body}"))

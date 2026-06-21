@@ -71,26 +71,57 @@ public sealed class NaturalLanguageSearchQueryHandler(
 
         var now = DateOnly.FromDateTime(DateTime.UtcNow);
 
+        // Pre-resolve filter names to IDs for efficient FK-based filtering
+        int[]? matchingStatusIds = null;
+        if (!string.IsNullOrWhiteSpace(filters.StatusName))
+            matchingStatusIds = await db.WorkflowStatuses.AsNoTracking()
+                .Where(s => s.Name == filters.StatusName)
+                .Select(s => s.Id).ToArrayAsync(ct);
+
+        int[]? matchingPriorityIds = null;
+        if (!string.IsNullOrWhiteSpace(filters.PriorityName))
+            matchingPriorityIds = await db.Priorities.AsNoTracking()
+                .Where(p => p.Name == filters.PriorityName)
+                .Select(p => p.Id).ToArrayAsync(ct);
+
+        int[]? matchingIssueTypeIds = null;
+        if (!string.IsNullOrWhiteSpace(filters.IssueTypeName))
+            matchingIssueTypeIds = await db.IssueTypes.AsNoTracking()
+                .Where(it => it.Name == filters.IssueTypeName)
+                .Select(it => it.Id).ToArrayAsync(ct);
+
+        Guid[]? matchingAssigneeIds = null;
+        if (!string.IsNullOrWhiteSpace(filters.AssigneeName))
+            matchingAssigneeIds = await db.Users.AsNoTracking()
+                .Where(u => u.DisplayName.Contains(filters.AssigneeName))
+                .Select(u => u.Id).ToArrayAsync(ct);
+
+        int[]? matchingLabelIds = null;
+        if (!string.IsNullOrWhiteSpace(filters.LabelName))
+            matchingLabelIds = await db.Labels.AsNoTracking()
+                .Where(l => l.Name == filters.LabelName)
+                .Select(l => l.Id).ToArrayAsync(ct);
+
         var query = db.Tickets.AsNoTracking()
             .Where(t => !t.IsDeleted);
 
         if (request.ProjectId.HasValue)
             query = query.Where(t => t.ProjectId == request.ProjectId.Value);
 
-        if (!string.IsNullOrWhiteSpace(filters.AssigneeName))
-            query = query.Where(t => t.Assignee != null && t.Assignee.DisplayName.Contains(filters.AssigneeName));
+        if (matchingAssigneeIds is not null)
+            query = query.Where(t => t.AssigneeUserId.HasValue && matchingAssigneeIds.Contains(t.AssigneeUserId.Value));
 
-        if (!string.IsNullOrWhiteSpace(filters.PriorityName))
-            query = query.Where(t => t.Priority != null && t.Priority.Name == filters.PriorityName);
+        if (matchingPriorityIds is not null)
+            query = query.Where(t => t.PriorityId.HasValue && matchingPriorityIds.Contains(t.PriorityId.Value));
 
-        if (!string.IsNullOrWhiteSpace(filters.StatusName))
-            query = query.Where(t => t.Status!.Name == filters.StatusName);
+        if (matchingStatusIds is not null)
+            query = query.Where(t => matchingStatusIds.Contains(t.StatusId));
 
-        if (!string.IsNullOrWhiteSpace(filters.IssueTypeName))
-            query = query.Where(t => t.IssueType!.Name == filters.IssueTypeName);
+        if (matchingIssueTypeIds is not null)
+            query = query.Where(t => matchingIssueTypeIds.Contains(t.IssueTypeId));
 
-        if (!string.IsNullOrWhiteSpace(filters.LabelName))
-            query = query.Where(t => t.Labels.Any(l => l.Name == filters.LabelName));
+        if (matchingLabelIds is not null)
+            query = query.Where(t => t.Labels.Any(l => matchingLabelIds.Contains(l.LabelId)));
 
         if (filters.OverdueOnly == true)
             query = query.Where(t => t.DueDate != null && t.DueDate < now);
@@ -104,19 +135,36 @@ public sealed class NaturalLanguageSearchQueryHandler(
             query = query.Where(t => t.Title.Contains(kw) || (t.Description != null && t.Description.Contains(kw)));
         }
 
-        var hits = await query
+        var hitsRaw = await query
             .OrderByDescending(t => t.UpdatedAt)
             .Take(50)
-            .Select(t => new TicketSearchHit(
-                t.Id,
-                t.TicketKey,
-                t.Title,
-                t.Status!.Name,
-                t.Priority != null ? t.Priority.Name : null,
-                t.Assignee != null ? t.Assignee.DisplayName : null,
-                t.DueDate,
-                t.DueDate != null && t.DueDate < now))
+            .Select(t => new { t.Id, t.TicketNumber, t.ProjectId, t.Title, t.StatusId, t.PriorityId, t.AssigneeUserId, t.DueDate })
             .ToListAsync(ct);
+
+        // Bulk-load reference data for projection
+        var hitStatusIds = hitsRaw.Select(t => t.StatusId).Distinct().ToList();
+        var hitPriorityIds = hitsRaw.Where(t => t.PriorityId.HasValue).Select(t => t.PriorityId!.Value).Distinct().ToList();
+        var hitAssigneeIds = hitsRaw.Where(t => t.AssigneeUserId.HasValue).Select(t => t.AssigneeUserId!.Value).Distinct().ToList();
+        var hitProjectIds = hitsRaw.Select(t => t.ProjectId).Distinct().ToList();
+
+        var hitStatusMap = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => hitStatusIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+        var hitPriorityMap = await db.Priorities.AsNoTracking()
+            .Where(p => hitPriorityIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+        var hitAssigneeMap = await db.Users.AsNoTracking()
+            .Where(u => hitAssigneeIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+        var hitProjectMap = await db.Projects.AsNoTracking()
+            .Where(p => hitProjectIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.ProjectKey, ct);
+
+        var hits = hitsRaw.Select(t => new TicketSearchHit(
+            t.Id,
+            $"{hitProjectMap.GetValueOrDefault(t.ProjectId, "")}-{t.TicketNumber}",
+            t.Title,
+            hitStatusMap.GetValueOrDefault(t.StatusId, "Unknown"),
+            t.PriorityId.HasValue ? hitPriorityMap.GetValueOrDefault(t.PriorityId.Value) : null,
+            t.AssigneeUserId.HasValue ? hitAssigneeMap.GetValueOrDefault(t.AssigneeUserId.Value) : null,
+            t.DueDate,
+            t.DueDate != null && t.DueDate < now)).ToList();
 
         return new NaturalLanguageSearchResult(interpretation,
             new ParsedSearchFilters(filters.AssigneeName, filters.PriorityName, filters.StatusName,

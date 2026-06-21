@@ -74,8 +74,7 @@ public sealed class ListTicketsQueryHandler(
             .ToListAsync(cancellationToken);
 
         if (tickets.Count == 0)
-            return new TicketListResult([], totalCount, request.PageNumber, totalPages,
-                request.PageNumber > 1, request.PageNumber < totalPages);
+            return new TicketListResult([], totalCount, request.PageNumber, totalPages);
 
         // Bulk-load reference data
         var issueTypeIds  = tickets.Select(t => t.IssueTypeId).Distinct().ToList();
@@ -140,7 +139,6 @@ public sealed class ListTicketsQueryHandler(
                 t.RowVersion);
         }).ToList().AsReadOnly();
 
-        return new TicketListResult(items, totalCount, request.PageNumber, totalPages,
-            request.PageNumber > 1, request.PageNumber < totalPages);
+        return new TicketListResult(items, totalCount, request.PageNumber, totalPages);
     }
 }

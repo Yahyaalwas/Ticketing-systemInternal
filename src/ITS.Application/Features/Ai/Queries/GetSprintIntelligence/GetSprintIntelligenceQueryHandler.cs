@@ -35,21 +35,53 @@ public sealed class GetSprintIntelligenceQueryHandler(
         var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now);
 
-        var tickets = await db.Tickets.AsNoTracking()
-            .Where(t => t.ProjectId == request.ProjectId && !t.IsDeleted && t.Status!.Category != "Done")
+        // Get IDs of non-Done statuses for filtering
+        var doneStatusIds = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => s.Category == ITS.Domain.Enums.StatusCategory.Done)
+            .Select(s => s.Id).ToListAsync(ct);
+
+        var ticketsRaw = await db.Tickets.AsNoTracking()
+            .Where(t => t.ProjectId == request.ProjectId && !t.IsDeleted && !doneStatusIds.Contains(t.StatusId))
             .Select(t => new
             {
-                t.Id, t.TicketKey, t.Title,
-                Status = t.Status!.Name, StatusCategory = t.Status.Category,
-                Priority = t.Priority != null ? t.Priority.Name : "None",
-                Assignee = t.Assignee != null ? t.Assignee.DisplayName : "Unassigned",
-                t.DueDate, t.SlaBreachAt, t.IsSlaBreached,
+                t.Id, t.TicketNumber, t.Title,
+                t.StatusId, t.PriorityId, t.AssigneeUserId,
+                t.DueDate, t.SlaBreachAt,
                 t.CreatedAt, t.UpdatedAt, t.ReopenCount
             })
             .ToListAsync(ct);
 
-        if (tickets.Count == 0)
+        if (ticketsRaw.Count == 0)
             return new SprintIntelligenceDto([], [], [], [], ["No active tickets found."], DateTimeOffset.UtcNow);
+
+        // Bulk-load reference data
+        var sprintStatusIds = ticketsRaw.Select(t => t.StatusId).Distinct().ToList();
+        var sprintPriorityIds = ticketsRaw.Where(t => t.PriorityId.HasValue).Select(t => t.PriorityId!.Value).Distinct().ToList();
+        var sprintAssigneeIds = ticketsRaw.Where(t => t.AssigneeUserId.HasValue).Select(t => t.AssigneeUserId!.Value).Distinct().ToList();
+
+        var sprintProject = await db.Projects.AsNoTracking()
+            .Where(p => p.Id == request.ProjectId).Select(p => new { p.ProjectKey }).FirstOrDefaultAsync(ct);
+        var sprintProjectKey = sprintProject?.ProjectKey ?? "";
+
+        var sprintStatusMap = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => sprintStatusIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+        var sprintPriorityMap = await db.Priorities.AsNoTracking()
+            .Where(p => sprintPriorityIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+        var sprintAssigneeMap = await db.Users.AsNoTracking()
+            .Where(u => sprintAssigneeIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+
+        var tickets = ticketsRaw.Select(t => new
+        {
+            t.Id,
+            TicketKey = $"{sprintProjectKey}-{t.TicketNumber}",
+            t.Title,
+            Status = sprintStatusMap.GetValueOrDefault(t.StatusId, "Unknown"),
+            Priority = t.PriorityId.HasValue ? sprintPriorityMap.GetValueOrDefault(t.PriorityId.Value, "None") : "None",
+            Assignee = t.AssigneeUserId.HasValue ? sprintAssigneeMap.GetValueOrDefault(t.AssigneeUserId.Value, "Unassigned") : "Unassigned",
+            t.DueDate, t.SlaBreachAt,
+            IsSlaBreached = t.SlaBreachAt.HasValue && t.SlaBreachAt.Value < now,
+            t.CreatedAt, t.UpdatedAt, t.ReopenCount
+        }).ToList();
 
         var ticketSummary = string.Join("\n", tickets.Select(t =>
             $"- [{t.TicketKey}] {t.Title} | Priority:{t.Priority} | Assignee:{t.Assignee} | " +

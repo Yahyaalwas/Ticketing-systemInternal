@@ -1,4 +1,5 @@
 using ITS.Application.Common.Interfaces;
+using ITS.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,25 +19,54 @@ public sealed class GetRiskAnalysisQueryHandler(
         var today = DateOnly.FromDateTime(now);
         var inactivityThreshold = now.AddDays(-7);
 
+        // Get IDs of non-Done statuses to filter tickets
+        var doneStatusIds = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => s.Category == StatusCategory.Done)
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+
         var ticketQuery = db.Tickets.AsNoTracking()
-            .Where(t => !t.IsDeleted && t.Status!.Category != "Done");
+            .Where(t => !t.IsDeleted && !doneStatusIds.Contains(t.StatusId));
 
         if (request.ProjectId.HasValue)
             ticketQuery = ticketQuery.Where(t => t.ProjectId == request.ProjectId.Value);
         if (request.TicketId.HasValue)
             ticketQuery = ticketQuery.Where(t => t.Id == request.TicketId.Value);
 
-        var tickets = await ticketQuery
+        var ticketsRaw = await ticketQuery
             .Select(t => new
             {
-                t.Id, t.TicketKey, t.Title,
+                t.Id, t.TicketNumber, t.ProjectId, t.Title,
                 t.AssigneeUserId, t.DueDate,
-                t.UpdatedAt, t.ReopenCount, t.IsSlaBreached,
+                t.UpdatedAt, t.ReopenCount,
                 t.SlaBreachAt, t.CreatedAt,
-                Priority = t.Priority != null ? t.Priority.Name : "None",
-                HasBlockers = t.LinkedTickets.Any(l => l.LinkType == "blocks")
+                t.PriorityId,
+                HasBlockers = t.OutboundLinks.Any()
             })
             .ToListAsync(ct);
+
+        // Bulk-load reference data
+        var projectIds = ticketsRaw.Select(t => t.ProjectId).Distinct().ToList();
+        var priorityIds = ticketsRaw.Where(t => t.PriorityId.HasValue).Select(t => t.PriorityId!.Value).Distinct().ToList();
+
+        var projectMap = await db.Projects.AsNoTracking()
+            .Where(p => projectIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.ProjectKey, ct);
+
+        var priorityMap = await db.Priorities.AsNoTracking()
+            .Where(p => priorityIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+
+        var tickets = ticketsRaw.Select(t => new
+        {
+            t.Id,
+            TicketKey = $"{projectMap.GetValueOrDefault(t.ProjectId, "")}-{t.TicketNumber}",
+            t.Title,
+            t.AssigneeUserId, t.DueDate, t.UpdatedAt, t.ReopenCount, t.SlaBreachAt, t.CreatedAt,
+            Priority = t.PriorityId.HasValue ? priorityMap.GetValueOrDefault(t.PriorityId.Value, "None") : "None",
+            IsSlaBreached = t.SlaBreachAt.HasValue && t.SlaBreachAt.Value < now,
+            t.HasBlockers
+        }).ToList();
 
         var risks = new List<TicketRisk>();
 

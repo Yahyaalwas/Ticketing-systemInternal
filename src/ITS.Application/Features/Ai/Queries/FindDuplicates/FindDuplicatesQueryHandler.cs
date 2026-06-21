@@ -24,16 +24,36 @@ public sealed class FindDuplicatesQueryHandler(
             throw new InvalidOperationException("AI rate limit exceeded.");
 
         // Fetch recent tickets from the same project for comparison
-        var candidates = await db.Tickets
+        var project = await db.Projects.AsNoTracking()
+            .Where(p => p.Id == request.ProjectId)
+            .Select(p => new { p.ProjectKey })
+            .FirstOrDefaultAsync(ct);
+
+        var projectKey = project?.ProjectKey ?? "";
+
+        var candidatesRaw = await db.Tickets
             .AsNoTracking()
             .Where(t => t.ProjectId == request.ProjectId && !t.IsDeleted)
             .OrderByDescending(t => t.CreatedAt)
             .Take(50)
-            .Select(t => new { t.Id, t.TicketKey, t.Title, Status = t.Status!.Name })
+            .Select(t => new { t.Id, t.TicketNumber, t.Title, t.StatusId })
             .ToListAsync(ct);
 
-        if (candidates.Count == 0)
+        if (candidatesRaw.Count == 0)
             return new DuplicateDetectionResult(false, []);
+
+        var statusIds = candidatesRaw.Select(c => c.StatusId).Distinct().ToList();
+        var statusMap = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => statusIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+
+        var candidates = candidatesRaw.Select(c => new
+        {
+            c.Id,
+            TicketKey = $"{projectKey}-{c.TicketNumber}",
+            c.Title,
+            Status = statusMap.GetValueOrDefault(c.StatusId, "Unknown")
+        }).ToList();
 
         var candidateList = string.Join("\n", candidates.Select((c, i) =>
             $"{i + 1}. [{c.TicketKey}] {c.Title} (Status: {c.Status})"));

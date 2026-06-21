@@ -32,22 +32,56 @@ public sealed class GetSimilarTicketsQueryHandler(
             if (hit is not null) return hit;
         }
 
-        var ticket = await db.Tickets.AsNoTracking()
+        var ticketRaw = await db.Tickets.AsNoTracking()
             .Where(t => t.Id == request.TicketId)
-            .Select(t => new { t.Title, t.Description, IssueType = t.IssueType!.Name, ProjectId = t.ProjectId })
+            .Select(t => new { t.Title, t.Description, t.IssueTypeId, t.ProjectId })
             .FirstOrDefaultAsync(ct)
             ?? throw new KeyNotFoundException($"Ticket {request.TicketId} not found.");
 
-        var candidates = await db.Tickets.AsNoTracking()
+        var issueTypeName = await db.IssueTypes.AsNoTracking()
+            .Where(it => it.Id == ticketRaw.IssueTypeId)
+            .Select(it => it.Name)
+            .FirstOrDefaultAsync(ct) ?? "Unknown";
+
+        var project = await db.Projects.AsNoTracking()
+            .Where(p => p.Id == ticketRaw.ProjectId)
+            .Select(p => new { p.ProjectKey })
+            .FirstOrDefaultAsync(ct);
+
+        var ticket = new { ticketRaw.Title, ticketRaw.Description, IssueType = issueTypeName, ticketRaw.ProjectId };
+
+        var candidatesRaw = await db.Tickets.AsNoTracking()
             .Where(t => t.Id != request.TicketId && t.ProjectId == ticket.ProjectId && !t.IsDeleted)
             .OrderByDescending(t => t.CreatedAt)
             .Take(40)
-            .Select(t => new { t.Id, t.TicketKey, t.Title, Status = t.Status!.Name,
-                Resolution = t.Resolution != null ? t.Resolution.Name : (string?)null })
+            .Select(t => new { t.Id, t.TicketNumber, t.Title, t.StatusId, t.ResolutionId })
             .ToListAsync(ct);
 
-        if (candidates.Count == 0)
+        if (candidatesRaw.Count == 0)
             return new SimilarTicketsDto(request.TicketId, [], [], []);
+
+        // Bulk-load statuses and resolutions
+        var statusIds = candidatesRaw.Select(c => c.StatusId).Distinct().ToList();
+        var resolutionIds = candidatesRaw.Where(c => c.ResolutionId.HasValue).Select(c => c.ResolutionId!.Value).Distinct().ToList();
+
+        var statusMap = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => statusIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+
+        var resolutionMap = await db.Resolutions.AsNoTracking()
+            .Where(r => resolutionIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, r => r.Name, ct);
+
+        var projectKey = project?.ProjectKey ?? "";
+
+        var candidates = candidatesRaw.Select(c => new
+        {
+            c.Id,
+            TicketKey = $"{projectKey}-{c.TicketNumber}",
+            c.Title,
+            Status = statusMap.GetValueOrDefault(c.StatusId, "Unknown"),
+            Resolution = c.ResolutionId.HasValue ? resolutionMap.GetValueOrDefault(c.ResolutionId.Value) : null
+        }).ToList();
 
         var candidateList = string.Join("\n", candidates.Select((c, i) =>
             $"{i + 1}. [{c.TicketKey}] {c.Title} (Status: {c.Status}, Resolution: {c.Resolution ?? "N/A"})"));

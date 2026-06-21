@@ -44,17 +44,40 @@ public sealed class GetExecutiveReportQueryHandler(
         if (request.ProjectId.HasValue)
             ticketQuery = ticketQuery.Where(t => t.ProjectId == request.ProjectId.Value);
 
-        var allTickets = await ticketQuery
+        var ticketsRaw = await ticketQuery
             .Select(t => new
             {
-                t.Id, t.Title, StatusCategory = t.Status!.Category,
-                Priority = t.Priority != null ? t.Priority.Name : "None",
-                t.CreatedAt, t.ResolvedAt, t.DueDate,
-                t.SlaBreachAt, t.IsSlaBreached,
-                IssueType = t.IssueType!.Name,
-                Assignee = t.Assignee != null ? t.Assignee.DisplayName : "Unassigned"
+                t.Id, t.Title, t.StatusId, t.PriorityId, t.IssueTypeId,
+                t.CreatedAt, t.ResolvedAt, t.DueDate, t.SlaBreachAt
             })
             .ToListAsync(ct);
+
+        // Bulk-load reference data
+        var statusIds = ticketsRaw.Select(t => t.StatusId).Distinct().ToList();
+        var priorityIds = ticketsRaw.Where(t => t.PriorityId.HasValue).Select(t => t.PriorityId!.Value).Distinct().ToList();
+        var issueTypeIds = ticketsRaw.Select(t => t.IssueTypeId).Distinct().ToList();
+
+        var statusMap = await db.WorkflowStatuses.AsNoTracking()
+            .Where(s => statusIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, s => s.Category.ToString(), ct);
+
+        var priorityMap = await db.Priorities.AsNoTracking()
+            .Where(p => priorityIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+
+        var issueTypeMap = await db.IssueTypes.AsNoTracking()
+            .Where(it => issueTypeIds.Contains(it.Id))
+            .ToDictionaryAsync(it => it.Id, it => it.Name, ct);
+
+        var allTickets = ticketsRaw.Select(t => new
+        {
+            t.Id, t.Title,
+            StatusCategory = statusMap.GetValueOrDefault(t.StatusId, ""),
+            Priority = t.PriorityId.HasValue ? priorityMap.GetValueOrDefault(t.PriorityId.Value, "None") : "None",
+            t.CreatedAt, t.ResolvedAt, t.DueDate, t.SlaBreachAt,
+            IsSlaBreached = t.SlaBreachAt.HasValue && t.SlaBreachAt.Value < now,
+            IssueType = issueTypeMap.GetValueOrDefault(t.IssueTypeId, "Unknown")
+        }).ToList();
 
         var today = DateOnly.FromDateTime(now);
         var totalTickets = allTickets.Count;
