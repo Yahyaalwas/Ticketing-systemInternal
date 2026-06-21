@@ -43,7 +43,7 @@ try
 
     // Layers
     builder.Services.AddApplicationServices();
-    builder.Services.AddInfrastructureServices(builder.Configuration);
+    builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment);
     builder.Services.AddApiServices(builder.Configuration);
     builder.Services.AddJwtAuthentication(builder.Configuration);
     builder.Services.AddSwaggerDocumentation();

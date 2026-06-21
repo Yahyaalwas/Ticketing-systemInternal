@@ -26,8 +26,8 @@ services:
 
   api:
     build:
-      context: ./src/ITS.Api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: src/ITS.Api/Dockerfile
     container_name: its-api
     restart: unless-stopped
     ports:
@@ -36,7 +36,7 @@ services:
       sqlserver:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Production}"
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: "${ConnectionStrings__DefaultConnection}"
       Jwt__Key: "${Jwt__Key}"

@@ -10,12 +10,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace ITS.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration, IHostEnvironment? env = null)
     {
         // EF Core
         services.AddDbContext<ApplicationDbContext>(options =>
@@ -47,8 +48,11 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IAuditService, AuditService>();
 
-        // AD / Identity
-        services.AddScoped<IAdSyncService, AdAuthenticationService>();
+        // AD / Identity — use stub in Development so the app starts without a real LDAP server
+        if (env?.IsDevelopment() == true)
+            services.AddScoped<IAdSyncService, DevAdSyncService>();
+        else
+            services.AddScoped<IAdSyncService, AdAuthenticationService>();
         services.AddSingleton<ITokenService, JwtTokenService>();
 
         // Background services
