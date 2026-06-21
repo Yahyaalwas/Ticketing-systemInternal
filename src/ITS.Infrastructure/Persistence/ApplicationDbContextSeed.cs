@@ -38,12 +38,12 @@ public sealed class ApplicationDbContextSeed(
         // We save here so EF assigns the int identity PKs.
         await db.SaveChangesAsync(cancellationToken);
 
-        var newStatus      = workflow.AddStatus("New",         null, StatusCategory.Open,       "#6c757d", 1, isInitial: true,  isFinal: false);
-        var openStatus     = workflow.AddStatus("Open",        null, StatusCategory.Open,       "#0d6efd", 2, isInitial: false, isFinal: false);
+        var newStatus      = workflow.AddStatus("New",         null, StatusCategory.ToDo,       "#6c757d", 1, isInitial: true,  isFinal: false);
+        var openStatus     = workflow.AddStatus("Open",        null, StatusCategory.ToDo,       "#0d6efd", 2, isInitial: false, isFinal: false);
         var inProgressStatus = workflow.AddStatus("In Progress", null, StatusCategory.InProgress, "#fd7e14", 3, isInitial: false, isFinal: false);
         var reviewStatus   = workflow.AddStatus("Review",      null, StatusCategory.InProgress, "#6f42c1", 4, isInitial: false, isFinal: false);
-        var doneStatus     = workflow.AddStatus("Done",        null, StatusCategory.Closed,     "#198754", 5, isInitial: false, isFinal: true);
-        var closedStatus   = workflow.AddStatus("Closed",      null, StatusCategory.Closed,     "#495057", 6, isInitial: false, isFinal: true);
+        var doneStatus     = workflow.AddStatus("Done",        null, StatusCategory.Done,     "#198754", 5, isInitial: false, isFinal: true);
+        var closedStatus   = workflow.AddStatus("Closed",      null, StatusCategory.Done,     "#495057", 6, isInitial: false, isFinal: true);
 
         await db.SaveChangesAsync(cancellationToken);
 

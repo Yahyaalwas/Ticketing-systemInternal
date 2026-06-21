@@ -1,8 +1,8 @@
 using ITS.Domain.Entities.Identity;
 using ITS.Domain.Entities.Projects;
-using ITS.Domain.Entities.Workflow;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using WorkflowEntity = ITS.Domain.Entities.Workflow.Workflow;
 
 namespace ITS.Infrastructure.Persistence.Configurations.Projects;
 
@@ -68,7 +68,7 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .IsRequired(false)
             .OnDelete(DeleteBehavior.SetNull);
 
-        builder.HasOne<Workflow>()
+        builder.HasOne<WorkflowEntity>()
             .WithMany()
             .HasForeignKey(p => p.ActiveWorkflowId)
             .IsRequired(false)

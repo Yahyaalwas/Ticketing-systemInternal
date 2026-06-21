@@ -9,13 +9,13 @@ internal sealed class ProjectAuthorizationService(IApplicationDbContext db) : IP
     private static readonly HashSet<string> ManagerRoles = new(StringComparer.OrdinalIgnoreCase)
     {
         RoleNames.SystemAdministrator,
-        RoleNames.ProjectAdmin
+        RoleNames.ProjectLead
     };
 
     private static readonly HashSet<string> ContributorRoles = new(StringComparer.OrdinalIgnoreCase)
     {
         RoleNames.SystemAdministrator,
-        RoleNames.ProjectAdmin,
+        RoleNames.ProjectLead,
         RoleNames.Developer
     };
 

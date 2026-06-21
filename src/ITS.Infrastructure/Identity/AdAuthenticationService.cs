@@ -25,7 +25,7 @@ public sealed class AdAuthenticationService(
     {
         try
         {
-            await using var conn = new LdapConnection { SecureSocketLayer = false };
+            using var conn = new LdapConnection { SecureSocketLayer = false };
             await Task.Run(() =>
             {
                 conn.Connect(_ldapHost, _ldapPort);
